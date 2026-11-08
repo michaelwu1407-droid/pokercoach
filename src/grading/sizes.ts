@@ -3,6 +3,7 @@ import { legalActions, potSize } from "../engine/reduce";
 import type { HandState } from "../engine/types";
 
 export interface SizeOption {
+  /** "All-in", or a hint of the size such as "half the pot". Empty for the standard preflop raise. */
   readonly label: string;
   readonly to: number;
 }
@@ -15,12 +16,11 @@ export function sizeOptions(st: HandState): SizeOption[] {
   const legal = legalActions(st);
   if (st.phase !== "betting" || !legal?.raise) return [];
   const { raise, callAmount } = legal;
-  const verb = raise.kind === "bet" ? "Bet" : "Raise to";
   const clamp = (to: number) => Math.min(raise.max, Math.max(raise.min, Math.round(to)));
   const afterCall = potSize(st) + callAmount;
   const candidates = st.street === "preflop"
-    ? [{ label: verb, to: aggressiveTo(st) }]
-    : [{ label: `${verb} ½ pot`, to: st.currentBet + afterCall / 2 }, { label: `${verb} pot`, to: st.currentBet + afterCall }];
+    ? [{ label: "", to: aggressiveTo(st) }]
+    : [{ label: "half the pot", to: st.currentBet + afterCall / 2 }, { label: "the pot", to: st.currentBet + afterCall }];
   const out: SizeOption[] = [];
   for (const c of [...candidates, { label: "All-in", to: raise.max }]) {
     const to = clamp(c.to);

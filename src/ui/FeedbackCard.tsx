@@ -31,6 +31,7 @@ export function FeedbackCard({ f }: { f: Feedback }) {
         </div>
       )}
       <p className="key-point" data-testid="key-point">{f.keyPoint}</p>
+      {f.draw && <p className="draw-line" data-testid="draw-line">{f.draw}</p>}
       {f.read && <p className="read" data-testid="read">{f.read}</p>}
       {f.details.length > 0 && (
         <details className="details">

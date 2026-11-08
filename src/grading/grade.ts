@@ -5,14 +5,15 @@ import type { Style } from "../bots/styles";
 import { apply, legalActions, potSize } from "../engine/reduce";
 import type { HandEvent, HandState, PlayerAction, SeatIndex } from "../engine/types";
 import { evaluate } from "../evaluator/handRank";
-import { equityVsCombo } from "../evaluator/equity";
+import { equityVsCombo, equityVsRange } from "../evaluator/equity";
 import { chartMove, type ChartMove, readPreflop, RESPONSE_CHART_SOURCE } from "../evaluator/responseCharts";
-import { classOf, type Combo, rangeCombos, type WeightedCombo } from "../evaluator/ranges";
+import { ALL_CLASSES, classOf, type Combo, combosOf, rangeCombos, type WeightedCombo } from "../evaluator/ranges";
 import { rangeMix } from "./rangeMix";
 import { sizeOptions } from "./sizes";
 import { candidates, isDeepShove } from "./options";
-import { gradeMultiway } from "./multiway";
-import { type ActionValue, type Grade, verdictForChoice } from "./types";
+import { equityAgainst, gradeMultiway } from "./multiway";
+import { drawOf } from "./outs";
+import { type ActionValue, type Grade, type GradeCore, type Win, verdictForChoice } from "./types";
 import { effectiveSize, villainRange } from "./villainRange";
 
 export interface DecisionContext {
@@ -45,7 +46,7 @@ function comboEquity(hero: Combo, villain: Combo, board: readonly Card[], seed: 
 const share = (set: ReadonlySet<string>) => rangeCombos(set).length / 1326;
 
 /** Every preflop decision is graded against the chart for its situation. */
-function gradeChart(ctx: DecisionContext): Grade {
+function gradeChart(ctx: DecisionContext): GradeCore {
   const { state: st, action } = ctx;
   const seat = action.seat;
   const read = readPreflop(st, seat);
@@ -67,6 +68,7 @@ function gradeChart(ctx: DecisionContext): Grade {
       kind: "chart", spot: read.spot, source: RESPONSE_CHART_SOURCE, position: read.position, opener: read.opener,
       handClass, bestMove, borderline, raiseShare: share(read.chart.raise), callShare: share(read.chart.call),
       continueShare: share(new Set([...read.chart.raise, ...read.chart.call])),
+      behind: st.phase === "betting" ? st.pending.filter((p) => p !== seat).length : 0,
     },
   };
 }
@@ -145,7 +147,7 @@ function valueOf(m: EvModel, action: PlayerAction): number {
   return value;
 }
 
-function gradeEv(ctx: DecisionContext): Grade {
+function gradeEv(ctx: DecisionContext): GradeCore {
   const { state: st, action, events, styles } = ctx;
   const hero = action.seat;
   const live = st.seats.map((s, i) => i).filter((i) => !st.seats[i]!.folded);
@@ -171,9 +173,9 @@ function gradeEv(ctx: DecisionContext): Grade {
   const legal = legalActions(st)!;
   const potOddsNeeded = legal.callAmount > 0 ? legal.callAmount / (potSize(st) + legal.callAmount) : null;
   const approximations = [
-    ...(st.street !== "river" ? [`The next betting round is played out over ${NEXT_CARDS} sampled cards, with you choosing your best option and them following their strategy. Streets after that are treated as checked down.`] : []),
-    ...(st.street === "flop" ? [`Equity on the flop is sampled from ${FLOP_RUNOUTS} runouts per opposing hand.`] : []),
-    ...(legal.raise ? ["If you bet and get raised, you either fold or call. Re-raising is not considered.", "A deep all-in is priced but never recommended, because this lookahead undervalues bets that keep later streets to play."] : []),
+    ...(st.street !== "river" ? [`The next betting round is played out over ${NEXT_CARDS} possible next cards, with you choosing your best option and them following their strategy. After that round, the rest of the hand is assumed to be checked through.`] : []),
+    ...(st.street === "flop" ? [`On the flop, your chance to win is estimated from ${FLOP_RUNOUTS} possible turn and river cards for each hand they could have.`] : []),
+    ...(legal.raise ? ["If you bet and get raised, you either fold or call. Re-raising is not considered.", "An all-in for more than twice the pot is priced but never recommended, because this method undervalues smaller bets that leave room to bet again later."] : []),
   ];
   const evLossBB = Math.max(0, best.evBB - chosen.evBB);
   let foldToBet: number | null = null;
@@ -198,12 +200,30 @@ function gradeEv(ctx: DecisionContext): Grade {
   };
 }
 
+const ALL_HANDS = ALL_CLASSES.flatMap((c) => combosOf(c)).map((combo) => ({ combo, weight: 1 }));
+
+/**
+ * Your chance to win at the decision. After the flop it is against everyone still in. Preflop it is
+ * against the players who have put money in, or one random hand when nobody has.
+ */
+function winAt(ctx: DecisionContext, core: Extract<GradeCore, { graded: true }>): Win {
+  const { state: st, action, events, styles } = ctx;
+  if (core.basis.kind === "ev") return { chance: core.basis.equity, against: core.basis.opponents };
+  const hero = action.seat;
+  const inPot = [...new Set(st.history.filter((a) => (a.type === "call" || a.type === "raise") && a.seat !== hero).map((a) => a.seat))]
+    .filter((s) => !st.seats[s]!.folded && styles[s]);
+  if (inPot.length === 0) {
+    const r = equityVsRange(st.seats[hero]!.hole, ALL_HANDS, [], { samples: 4000, seed: 7 + events.length });
+    return { chance: r.equity, against: 0 };
+  }
+  return { chance: equityAgainst(events, st, hero, styles, inPot), against: inPot.length };
+}
+
 /** Grades one hero decision. Never looks at how the hand turned out. */
 export function grade(ctx: DecisionContext): Grade {
   const { state: st, action } = ctx;
   if (st.phase !== "betting" || legalActions(st)?.seat !== action.seat) throw new Error("grade needs the state the action was taken in");
-  if (st.street === "preflop") {
-    return gradeChart(ctx);
-  }
-  return gradeEv(ctx);
+  const core = st.street === "preflop" ? gradeChart(ctx) : gradeEv(ctx);
+  if (!core.graded) return core;
+  return { ...core, win: winAt(ctx, core), draw: drawOf(st.seats[action.seat]!.hole, st.board) };
 }

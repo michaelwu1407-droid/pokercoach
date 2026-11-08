@@ -29,7 +29,7 @@ export interface Chart {
 }
 
 const DEFAULT_SOURCE =
-  "pokercoach default 6-max 100bb open-raise chart. Approximate, written for this app.";
+  "Based on the default opening charts for six-player tables with $100 stacks, written for this app.";
 
 const chart = (position: Position, text: string): Chart => ({
   id: `rfi-${position}`,

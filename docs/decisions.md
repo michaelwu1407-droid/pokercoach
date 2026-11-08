@@ -61,3 +61,11 @@ The guide opens on the first visit with hand rankings and every word the coach u
 What it changed, on a regular-style hero over 400 simulated hands: heads-up blunders fell from 23 to 10 and mistakes from 25 to 14, because a check or call now earns the value it leaves for later. A turn check with the nuts against a calling station is worth 2.34bb in a 2bb pot instead of exactly 2bb. Calls can now be right below the break-even equity (implied odds) and wrong above it (they keep betting), and the card says so. Grading takes 296ms at the 95th percentile and 428ms at most.
 
 Multiway pots still look one action ahead.
+
+## 14. Plain words, enforced by tests
+
+A beginner tester hit "T" for ten and "bb" for big blind on the first screen. Every learner-facing string now goes through `src/coach/words.ts`: dollars at $0.50 and $1 blinds, seat names (Early, Middle, Late, Dealer, Small blind, Big blind), "10-3 offsuit" for hand codes, "chance to win" for equity. The `JARGON` pattern fails a unit test over every fixed label and 150+ simulated coach cards, and the browser test scans the whole screen at every step.
+
+## 15. Chance to win on every card, and the rule of 2 and 4
+
+Every card leads with your chance to win: against everyone still in after the flop, against the players who put money in before it, or against one random hand when nobody has. A draw adds its exact out count and the in-your-head estimate (outs × 4 on the flop, × 2 on the turn). The guide's cheat sheet of break-even calls and common matchups is checked against the evaluator by a test.

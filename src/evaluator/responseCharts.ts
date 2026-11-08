@@ -78,4 +78,4 @@ export const chartMove = (c: ResponseChart, cls: HandClass): ChartMove =>
   c.raise.has(cls) ? "raise" : c.call.has(cls) ? "call" : "fold";
 
 export const RESPONSE_CHART_SOURCE =
-  "pokercoach default 6-max 100bb charts for opening, facing a raise, a re-raise and limpers. Approximate, written for this app.";
+  "Based on the default charts for six-player tables with $100 stacks, written for this app. They are a close approximation, not a published source.";

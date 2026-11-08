@@ -8,7 +8,7 @@ import type { Combo, WeightedCombo } from "../evaluator/ranges";
 import { candidates, isDeepShove } from "./options";
 import { rangeMix } from "./rangeMix";
 import { sizeOptions } from "./sizes";
-import { type ActionValue, type Grade, verdictForChoice } from "./types";
+import { type ActionValue, type GradeCore, verdictForChoice } from "./types";
 import { effectiveSize, villainRange } from "./villainRange";
 
 const SAMPLES = 600;
@@ -67,7 +67,7 @@ function deal(hero: Combo, board: readonly Card[], ranges: readonly WeightedComb
  * hands and the runout are then sampled together. A bet is answered by each opponent independently.
  */
 export function gradeMultiway(events: readonly HandEvent[], st: HandState, action: PlayerAction,
-  styles: Readonly<Record<SeatIndex, Style>>, villains: readonly SeatIndex[]): Grade {
+  styles: Readonly<Record<SeatIndex, Style>>, villains: readonly SeatIndex[]): GradeCore {
   const hero = action.seat;
   const holeHero = st.seats[hero]!.hole;
   const ranges = villains.map((v) => villainRange(events, v, styles[v]!, [...holeHero, ...st.board]));
@@ -131,8 +131,18 @@ export function gradeMultiway(events: readonly HandEvent[], st: HandState, actio
       approximations: [
         `Against ${villains.length} opponents, their hands and the cards to come are sampled ${samples.length} times.`,
         "Each opponent answers a bet as if they were the only one deciding. Re-raises are treated as calls.",
-        "After a check or call, the hand is treated as checked down.",
+        "After a check or call, the rest of the hand is assumed to be checked through.",
       ],
     },
   };
+}
+
+/** Hero's pot share against several opponents' inferred ranges, sampled together with the runout. */
+export function equityAgainst(events: readonly HandEvent[], st: HandState, hero: SeatIndex,
+  styles: Readonly<Record<SeatIndex, Style>>, villains: readonly SeatIndex[]): number {
+  const holeHero = st.seats[hero]!.hole;
+  const ranges = villains.map((v) => villainRange(events, v, styles[v]!, [...holeHero, ...st.board]));
+  const samples = deal(holeHero, st.board, ranges, 57 + events.length);
+  const all = (1 << villains.length) - 1;
+  return samples.reduce((s, x) => s + x.share(all), 0) / samples.length;
 }

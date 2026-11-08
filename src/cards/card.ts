@@ -3,6 +3,15 @@ export type Card = number & { readonly [cardBrand]: true };
 
 export const RANKS = "23456789TJQKA";
 export const SUITS = "cdhs";
+/** How a rank is shown to people. "T" is shorthand players learn later, so the screen says "10". */
+export const RANK_LABELS = ["2", "3", "4", "5", "6", "7", "8", "9", "10", "J", "Q", "K", "A"] as const;
+
+/** "T3o" becomes "10-3 offsuit", "AKs" becomes "A-K suited", "88" becomes "8-8". */
+export function prettyClass(cls: string): string {
+  const label = (ch: string) => RANK_LABELS[RANKS.indexOf(ch)] ?? ch;
+  const pair = `${label(cls[0] ?? "")}-${label(cls[1] ?? "")}`;
+  return cls[2] === "s" ? `${pair} suited` : cls[2] === "o" ? `${pair} offsuit` : pair;
+}
 
 export const rankOf = (c: Card): number => c >> 2;
 export const suitOf = (c: Card): number => c & 3;

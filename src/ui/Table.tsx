@@ -1,18 +1,19 @@
-import { type Card, formatCard, rankOf, suitOf } from "../cards/card";
+import { type Card, formatCard, RANK_LABELS, rankOf, suitOf } from "../cards/card";
 import { potSize } from "../engine/reduce";
 import type { HandState } from "../engine/types";
 import { positionOf } from "../evaluator/preflopCharts";
 import { HERO } from "../session/session";
+import { money, seatName } from "../coach/words";
 
 const SUIT_GLYPH = ["♣", "♦", "♥", "♠"] as const;
-const bbOf = (st: HandState, chips: number) => `${+(chips / st.config.bigBlind).toFixed(1)}bb`;
+const bbOf = (st: HandState, chips: number) => money(chips, st.config.bigBlind);
 
 export function CardView({ card, hidden = false }: { card?: Card; hidden?: boolean }) {
   if (hidden || card === undefined) return <span className="card card-back" aria-label="hidden card" />;
   const red = suitOf(card) === 1 || suitOf(card) === 2;
   return (
-    <span className={`card${red ? " card-red" : ""}`} data-card={formatCard(card)}>
-      {"23456789TJQKA"[rankOf(card)]}
+    <span className={`card${red ? " card-red" : ""}${rankOf(card) === 8 ? " card-ten" : ""}`} data-card={formatCard(card)}>
+      {RANK_LABELS[rankOf(card)]}
       {SUIT_GLYPH[suitOf(card)]}
     </span>
   );
@@ -38,7 +39,7 @@ export function Table({ st }: { st: HandState }) {
         return (
           <div key={i} className={`seat${s.folded ? " seat-folded" : ""}${toAct ? " seat-active" : ""}`} style={style} data-testid={`seat-${i}`}>
             <div className="seat-name">
-              {s.id} <span className="seat-pos">{positionOf(st.config, i)}</span>
+              {s.id} <span className="seat-pos">{seatName(positionOf(st.config, i))}</span>
             </div>
             <div className="seat-cards">
               <CardView card={s.hole[0]} hidden={!show} />

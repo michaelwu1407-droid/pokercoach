@@ -16,7 +16,14 @@ export function describeHand(hole: readonly [Card, Card], board: readonly Card[]
   }
   const score = evaluate([...hole, ...board]);
   const [k1, k2] = kickers(score);
-  switch (categoryOf(score)) {
+  const category = categoryOf(score);
+  const holeRanks = hole.map(rankOf);
+  const made = category === "pair" || category === "trips" ? [k1!] : category === "two pair" ? [k1!, k2!] : null;
+  if (made && !made.some((r) => holeRanks.includes(r))) {
+    const shared = category === "pair" ? `pair of ${PLURAL[k1!]}` : category === "trips" ? `three ${PLURAL[k1!]}` : `two pair`;
+    return `${NAMES[Math.max(...holeRanks)]} high. The ${shared} is on the board, so everyone has it`;
+  }
+  switch (category) {
     case "high card": return `${NAMES[k1!]} high`;
     case "pair": return `Pair of ${PLURAL[k1!]}`;
     case "two pair": return `Two pair, ${PLURAL[k1!]} and ${PLURAL[k2!]}`;

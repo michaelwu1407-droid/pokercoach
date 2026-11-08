@@ -7,7 +7,7 @@
     "build": "vite build",
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
-    "e2e": "node scripts/e2e.mjs",
+    "e2e": "vite-node scripts/e2e.mjs",
     "verify": "npm run typecheck && npm test && npm run build && npm run e2e"
   },
   "devDependencies": {

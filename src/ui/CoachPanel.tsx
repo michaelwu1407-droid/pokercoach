@@ -8,6 +8,7 @@ import { HERO } from "../session/session";
 import { FeedbackCard } from "./FeedbackCard";
 import { ALL_CONCEPTS } from "./store";
 import { useKeys } from "./useKeys";
+import { signedMoney } from "../coach/words";
 
 interface Props {
   readonly coachState: CoachState;
@@ -53,7 +54,7 @@ export function CoachPanel({ coachState: c, st, opponents, grades, drilling, onR
       {showReview && (
         <div className="review" data-testid="review">
           <p className="outcome">
-            Hand over: {heroNet >= 0 ? "+" : "−"}{Math.abs(heroNet / bb).toFixed(1)}bb.
+            Hand over: {signedMoney(heroNet, bb)}.
             {" "}{graded.length === 0 ? "No graded decisions." : misses === 0 ? "No mistakes." : `${misses} mistake${misses > 1 ? "s" : ""}.`}
           </p>
           <p className="muted small">Winning or losing a hand says little. Your decisions are what count.</p>

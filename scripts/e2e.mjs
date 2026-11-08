@@ -2,6 +2,7 @@ import { spawn } from "node:child_process";
 import { mkdirSync } from "node:fs";
 import { createRequire } from "node:module";
 import assert from "node:assert/strict";
+import { JARGON } from "../src/coach/words.ts";
 
 const require = createRequire(import.meta.url);
 const { chromium } = require("playwright");
@@ -40,6 +41,9 @@ try {
   // A deliberately loose player: raise when possible, else call. It makes mistakes the coach must catch.
   for (let step = 0; step < 500 && seen.hands < 12; step++) {
     if (process.env.E2E_DEBUG) console.log(step, JSON.stringify(seen));
+    const screen = await page.locator("main").innerText();
+    const hit = screen.split("\n").find((line) => JARGON.test(line));
+    assert.equal(hit, undefined, `jargon on screen: "${hit}"`);
     if (await page.getByTestId("feedback").isVisible()) {
       const text = await page.getByTestId("feedback").innerText();
       if (text !== lastFeedback) {
@@ -110,7 +114,9 @@ try {
   await page.getByTestId("next-drill").click();
 
   await page.getByTestId("tab-progress").click();
-  assert.match(await page.getByTestId("progress").innerText(), /Lost per decision/);
+  const progressText = await page.getByTestId("progress").innerText();
+  assert.match(progressText, /Lost per decision/);
+  assert.equal(progressText.split("\n").find((line) => JARGON.test(line)), undefined, "no jargon on the progress page");
   await page.screenshot({ path: `${OUT}/progress.png` });
 
   await page.setViewportSize({ width: 390, height: 844 });

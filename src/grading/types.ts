@@ -2,6 +2,7 @@ import type { PlayerAction, SeatIndex, Street } from "../engine/types";
 import type { Position } from "../evaluator/preflopCharts";
 import type { ChartMove, PreflopSpot } from "../evaluator/responseCharts";
 import type { MixShare } from "./rangeMix";
+import type { Draw } from "./outs";
 
 export type Verdict = "good" | "small" | "mistake" | "blunder";
 
@@ -28,6 +29,8 @@ export type Basis =
       readonly callShare: number;
       /** raiseShare + callShare. */
       readonly continueShare: number;
+      /** Players still to act after you this round. */
+      readonly behind: number;
     }
   | {
       readonly kind: "ev";
@@ -51,19 +54,38 @@ export type Basis =
       readonly approximations: readonly string[];
     };
 
-export type Grade =
-  | {
-      readonly graded: true;
-      readonly street: Street;
-      readonly seat: SeatIndex;
-      readonly action: PlayerAction;
-      readonly best: PlayerAction;
-      /** Null for chart grades, which judge a deviation, not a measured loss. */
-      readonly evLossBB: number | null;
-      readonly verdict: Verdict;
-      readonly basis: Basis;
-    }
-  | { readonly graded: false; readonly street: Street; readonly seat: SeatIndex; readonly action: PlayerAction; readonly reason: string };
+export interface Win {
+  /** Your share of the pot if all cards were dealt out now. */
+  readonly chance: number;
+  /** Opponents it is measured against. 0 means one random hand, used preflop before anyone puts money in. */
+  readonly against: number;
+}
+
+export interface Graded {
+  readonly graded: true;
+  readonly street: Street;
+  readonly seat: SeatIndex;
+  readonly action: PlayerAction;
+  readonly best: PlayerAction;
+  /** Null for chart grades, which judge a deviation, not a measured loss. */
+  readonly evLossBB: number | null;
+  readonly verdict: Verdict;
+  readonly basis: Basis;
+  readonly win: Win;
+  readonly draw: Draw | null;
+}
+
+export interface Ungraded {
+  readonly graded: false;
+  readonly street: Street;
+  readonly seat: SeatIndex;
+  readonly action: PlayerAction;
+  readonly reason: string;
+}
+
+export type Grade = Graded | Ungraded;
+/** What each grader returns. `grade` adds your chance to win and any draw. */
+export type GradeCore = Omit<Graded, "win" | "draw"> | Ungraded;
 
 const aggressive = (a: PlayerAction) => a.type === "bet" || a.type === "raise";
 

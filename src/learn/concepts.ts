@@ -20,15 +20,15 @@ export const applies = (c: Concept, s: SpotView) => c.appliesWhen.every((p) => P
 export const CORE_CONCEPTS: readonly Concept[] = [
   {
     id: "open-by-position",
-    title: "Opening ranges by seat",
+    title: "Which hands to play by seat",
     statement: "When it folds to you, raise the hands in your seat's range and fold the rest. Later seats open more hands.",
     appliesWhen: ["preflop-raise-first-in"],
     sources: [{ kind: "chart", chartId: "rfi" }],
   },
   {
     id: "vs-limpers",
-    title: "Raising over limpers",
-    statement: "When players limp in, raise your good hands to take the pot from them, and fold the rest.",
+    title: "When others just call",
+    statement: "When players only call the big blind, raise your good hands to take the pot from them, and fold the rest.",
     appliesWhen: ["preflop-vs-limp"],
     sources: [{ kind: "chart", chartId: "vs-limp" }],
   },
@@ -48,7 +48,7 @@ export const CORE_CONCEPTS: readonly Concept[] = [
   },
   {
     id: "pot-odds",
-    title: "Pot odds",
+    title: "Is calling worth the price?",
     statement: "Call when your chance of winning beats the share of the final pot you would put in.",
     appliesWhen: ["postflop", "facing-bet", "heads-up"],
     sources: [{ kind: "math", note: "Calling breaks even when equity = call ÷ (pot + call)." }],
@@ -69,21 +69,21 @@ export const CORE_CONCEPTS: readonly Concept[] = [
   },
   {
     id: "respect-nit-aggression",
-    title: "Reading a nit",
+    title: "Reading a tight player",
     statement: "A tight player who bets or raises usually has it. Fold your medium hands.",
     appliesWhen: ["postflop", "facing-bet", "vs-nit"],
     sources: [{ kind: "opponent", styleId: "nit" }],
   },
   {
     id: "call-down-maniacs",
-    title: "Reading a maniac",
+    title: "Reading a wild player",
     statement: "A hyper-aggressive player bluffs a lot, so medium hands become calls.",
     appliesWhen: ["postflop", "facing-bet", "vs-maniac"],
     sources: [{ kind: "opponent", styleId: "lag" }],
   },
   {
     id: "value-bet-stations",
-    title: "Reading a calling station",
+    title: "Reading a loose caller",
     statement: "A station calls with weak hands, so bet your decent hands and never bluff.",
     appliesWhen: ["postflop", "not-facing-bet", "vs-station"],
     sources: [{ kind: "opponent", styleId: "station" }],

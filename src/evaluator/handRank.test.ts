@@ -3,6 +3,7 @@ import fc from "fast-check";
 import { type Card, FULL_DECK, parseCards } from "../cards/card";
 import { categoryOf, evaluate, type HandScore } from "./handRank";
 import { describeHand } from "./describe";
+import { drawOf } from "../grading/outs";
 
 const ev = (s: string) => evaluate(parseCards(s));
 
@@ -77,5 +78,19 @@ describe("describeHand", () => {
     expect(d("5h 4c", "Ac 2d 3s")).toBe("Straight to the Five");
     expect(d("Ah Kh", "Qh Jh Th")).toBe("Royal flush");
     expect(d("Kh Kc", "Ks 7d 7c")).toBe("Full house, Kings full of Sevens");
+    expect(d("Kd Js", "Qh 4s 4h")).toBe("King high. The pair of Fours is on the board, so everyone has it");
+    expect(d("Kd 4c", "Qh 4s 4h")).toBe("Three Fours");
+  });
+});
+
+describe("outs", () => {
+  const draw = (hole: string, board: string) => drawOf(parseCards(hole) as unknown as [Card, Card], parseCards(board));
+  it("counts the textbook draws", () => {
+    expect(draw("Ah Kh", "2h 7h Qc")).toMatchObject({ name: "flush draw", outs: 9, multiplier: 4, estimate: 0.36 });
+    expect(draw("9c 8d", "7h 6s Kc")).toMatchObject({ name: "straight draw", outs: 8 });
+    expect(draw("9c 8d", "7h 5s Kc")).toMatchObject({ name: "straight draw", outs: 4 });
+    expect(draw("9h 8h", "7h 6h Kc")).toMatchObject({ name: "flush and straight draw", outs: 15 });
+    expect(draw("Ah Kh", "2h 7h Qc 3s")).toMatchObject({ multiplier: 2, estimate: 0.18 });
+    expect(draw("Ah Kd", "2h 7c Qc")).toBeNull();
   });
 });

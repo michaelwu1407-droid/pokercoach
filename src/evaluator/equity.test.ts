@@ -69,3 +69,19 @@ describe("equity", () => {
     expect(r.equity).toBeLessThan(0.83);
   });
 });
+
+describe("the guide's cheat sheet", () => {
+  const vs = (a: string, b: string) => equityVsRange(combo(a), one(b), [], { samples: 100_000, seed: 11 }).equity;
+  const need = (betShareOfPot: number) => betShareOfPot / (1 + 2 * betShareOfPot);
+  it("states matchups and break-even numbers that the evaluator agrees with", () => {
+    expect(vs("8h 8c", "As Kd")).toBeCloseTo(0.55, 1);
+    expect(vs("Kh Kc", "8s 8d")).toBeCloseTo(0.81, 1);
+    expect(vs("As Kd", "Ac Th")).toBeGreaterThan(0.68);
+    expect(need(0.5)).toBeCloseTo(0.25, 3);
+    expect(need(2 / 3)).toBeCloseTo(0.286, 3);
+    expect(need(1)).toBeCloseTo(1 / 3, 3);
+    // Flush draw, 9 outs: exact chance to hit by the river from the flop, and on the river from the turn.
+    expect(1 - (38 / 47) * (37 / 46)).toBeCloseTo(0.35, 2);
+    expect(9 / 46).toBeCloseTo(0.196, 2);
+  }, 60_000);
+});

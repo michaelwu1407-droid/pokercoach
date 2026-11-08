@@ -1,3 +1,4 @@
+import { dollars } from "../coach/words";
 import { formatDate } from "./format";
 import type { Concept } from "../learn/concepts";
 import type { Learner } from "../learn/learner";
@@ -18,7 +19,7 @@ export function Progress({ learner, concepts }: { learner: Learner; concepts: re
             <tr key={w.weekStart}>
               <td>{formatDate(w.weekStart)}</td>
               <td>{w.evDecisions}</td>
-              <td>{w.meanEvLossBB === null ? "–" : `${w.meanEvLossBB.toFixed(2)}bb`}</td>
+              <td>{w.meanEvLossBB === null ? "–" : dollars(w.meanEvLossBB)}</td>
               <td>{w.chartAccuracy === null ? "–" : `${Math.round(w.chartAccuracy * 100)}% of ${w.chartDecisions}`}</td>
             </tr>
           ))}</tbody>
@@ -29,7 +30,7 @@ export function Progress({ learner, concepts }: { learner: Learner; concepts: re
         <ol data-testid="leaks">{leakList.map((l) => (
           <li key={l.conceptId}>
             <b>{title(l.conceptId)}</b>: {Math.round(l.missRate * l.decisions)} mistakes in {l.decisions}
-            {l.meanEvLossBB !== null && `, ${l.meanEvLossBB.toFixed(1)}bb lost per decision on average`}
+            {l.meanEvLossBB !== null && `, ${dollars(l.meanEvLossBB)} lost per decision on average`}
           </li>
         ))}</ol>
       )}

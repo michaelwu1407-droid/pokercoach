@@ -1,16 +1,21 @@
+import { RANK_LABELS, RANKS } from "../cards/card";
 import type { Grade } from "../grading/types";
 
 const NUMBER = /\d+(?:\.\d+)?/g;
+/** A hand class such as "97s". Its card names may be printed, and they are not computed figures. */
+const HAND_CLASS = /^[2-9TJQKA]{2}[so]?$/;
 const canon = (n: string) => String(Number(n));
 
 /** Every number the grader produced, in each format the coach is allowed to print it. */
 export function allowedNumbers(g: Grade, bigBlind: number): Set<string> {
   const out = new Set<string>();
   const add = (x: number) => {
-    for (const f of [x, Math.round(x * 100), Math.abs(x).toFixed(1), (Math.abs(x) / bigBlind).toFixed(1)]) out.add(canon(String(f)));
+    const forms = [x, Math.round(x * 100), Math.abs(x).toFixed(1), Math.abs(x).toFixed(2), (Math.abs(x) / bigBlind).toFixed(1), (Math.abs(x) / bigBlind).toFixed(2)];
+    for (const f of forms) out.add(canon(String(f)));
   };
   const walk = (v: unknown): void => {
     if (typeof v === "number") add(v);
+    else if (typeof v === "string" && HAND_CLASS.test(v)) [...v.slice(0, 2)].forEach((ch) => out.add(canon(RANK_LABELS[RANKS.indexOf(ch)]!)));
     else if (typeof v === "string") (v.match(NUMBER) ?? []).forEach((n) => out.add(canon(n)));
     else if (v && typeof v === "object") Object.values(v).forEach(walk);
   };

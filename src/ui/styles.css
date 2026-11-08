@@ -146,3 +146,5 @@ kbd { font: inherit; font-size: 11px; opacity: 0.6; border: 1px solid currentCol
 .terms dt { font-weight: 700; }
 .terms dd { margin: 0; color: var(--muted); }
 .sheet-start { margin-top: 16px; }
+.card-ten { letter-spacing: -1.5px; }
+.draw-line { margin: 0; font-size: 14px; padding: 8px 12px; background: var(--bg); border-radius: 8px; }

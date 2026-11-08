@@ -3,13 +3,14 @@ import { legalActions } from "../engine/reduce";
 import { sizeOptions } from "../grading/sizes";
 import type { HandState, PlayerAction } from "../engine/types";
 import { useKeys } from "./useKeys";
+import { money } from "../coach/words";
 
 interface Props {
   readonly st: HandState;
   readonly onAct: (a: PlayerAction) => void;
 }
 
-const bbText = (chips: number, bb: number) => `${+(chips / bb).toFixed(1)}bb`;
+const bbText = (chips: number, bb: number) => money(chips, bb);
 
 interface Option {
   readonly key: string;
@@ -29,10 +30,11 @@ function optionsFor(st: HandState): Option[] {
   out.push(canCheck
     ? { key: "c", label: "Check", testId: "act-check", primary: false, action: { type: "check", seat } }
     : { key: "c", label: `Call ${bbText(callAmount, bb)}`, testId: "act-call", primary: false, action: { type: "call", seat } });
-  if (raise) sizeOptions(st).forEach((s, i) => out.push({
-    key: i === 0 ? "r" : String(i + 1), label: `${s.label} ${bbText(s.to, bb)}`, testId: i === 0 ? "act-raise" : `act-size-${i}`,
-    primary: i === 0, action: { type: raise.kind, seat, to: s.to },
-  }));
+  if (raise) sizeOptions(st).forEach((s, i) => {
+    const verb = raise.kind === "bet" ? "Bet" : "Raise to";
+    const label = s.label === "All-in" ? `All-in ${bbText(s.to, bb)}` : `${verb} ${bbText(s.to, bb)}${s.label ? ` (${s.label})` : ""}`;
+    out.push({ key: i === 0 ? "r" : String(i + 1), label, testId: i === 0 ? "act-raise" : `act-size-${i}`, primary: i === 0, action: { type: raise.kind, seat, to: s.to } });
+  });
   return out;
 }
 
