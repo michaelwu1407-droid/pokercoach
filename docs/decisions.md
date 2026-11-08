@@ -77,3 +77,7 @@ Each card shows the verdict and one line with the number that decided it. Everyt
 ## 17. Table mechanics match standard poker clients
 
 See the table in `docs/benchmark.md`. Opponents act one at a time (`ACTION_DELAY_MS`), the grader still prices any amount you choose, and recommendations stay on the preset sizes.
+
+## 18. Fewer elements
+
+Removed: the Play tab, the new-table banner, the waiting line, key hints on buttons, the typed amount box, opponents' seat labels (the takeaway names the raiser and their seat instead), the hand review list and its disclaimer. The default controls are Fold, Call and Raise; Raise opens three presets and a slider. Every "what next" button sits in the same place under the table. The table uses the full width until there is feedback to show.

@@ -9,7 +9,8 @@ import { money, seatName } from "../coach/words";
 const SUIT_GLYPH = ["♣", "♦", "♥", "♠"] as const;
 const bbOf = (st: HandState, chips: number) => money(chips, st.config.bigBlind);
 
-export function CardView({ card, hidden = false }: { card?: Card; hidden?: boolean }) {
+export function CardView({ card, hidden = false, empty = false }: { card?: Card; hidden?: boolean; empty?: boolean }) {
+  if (empty) return <span className="card card-empty" aria-hidden="true" />;
   if (hidden || card === undefined) return <span className="card card-back" aria-label="hidden card" />;
   const red = suitOf(card) === 1 || suitOf(card) === 2;
   return (
@@ -29,7 +30,7 @@ export function Table({ st, events, onSkip }: { st: HandState; events: readonly 
     <div className="table" data-testid="table" onClick={onSkip}>
       <div className="felt">
         <div className="board" data-testid="board">
-          {[0, 1, 2, 3, 4].map((i) => <CardView key={i} {...(st.board[i] !== undefined ? { card: st.board[i] } : { hidden: true })} />)}
+          {[0, 1, 2, 3, 4].map((i) => <CardView key={i} {...(st.board[i] !== undefined ? { card: st.board[i] } : { empty: true })} />)}
         </div>
         <div className="pot" data-testid="pot">Pot {bbOf(st, potSize(st))}</div>
         {result && <div className="result" data-testid="result">{result}</div>}
@@ -43,10 +44,10 @@ export function Table({ st, events, onSkip }: { st: HandState; events: readonly 
         const label = labels.get(i);
         const pos = positionOf(st.config, i);
         return (
-          <div key={i} className={`seat${s.folded ? " seat-folded" : ""}${toAct ? " seat-active" : ""}${won > 0 ? " seat-winner" : ""}`} style={style} data-testid={`seat-${i}`}>
+          <div key={i} title={`${s.id}, ${seatName(pos)} seat`} className={`seat${s.folded ? " seat-folded" : ""}${toAct ? " seat-active" : ""}${won > 0 ? " seat-winner" : ""}`} style={style} data-testid={`seat-${i}`}>
             {pos === "BTN" && <span className="dealer-button" title="Dealer">D</span>}
             <div className="seat-name">
-              {s.id} <span className="seat-pos">{seatName(pos)}</span>
+              {s.id}{i === HERO && <span className="seat-pos"> · {seatName(pos)}</span>}
             </div>
             <div className="seat-cards">
               {!s.folded && <CardView card={s.hole[0]} hidden={!show} />}

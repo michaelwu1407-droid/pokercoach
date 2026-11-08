@@ -33,7 +33,6 @@ try {
   await page.keyboard.press("Escape");
   await page.getByTestId("help").waitFor({ state: "hidden" });
   await page.getByTestId("table").waitFor();
-  assert.ok(await page.getByTestId("new-table").isVisible(), "first hand announces a new table");
   assert.match(await page.getByTestId("you-have").innerText(), /You have: /);
   const seen = { keyed: 0, sized: 0, skipped: 0, feedback: 0, mix: 0, read: 0, pauses: 0, hands: 0, decisions: 0, maxButtons: 0 };
   let lastFeedback = "";
@@ -67,7 +66,7 @@ try {
     }
     if (await page.getByTestId("next-hand").isVisible()) {
       seen.hands++;
-      assert.match(await page.getByTestId("review").innerText(), /Your decisions are what count/);
+      assert.match(await page.getByTestId("review").innerText(), /this hand/);
       // A walk (everyone folds to your big blind) ends at once, so wait for the table to change, not the button to go.
       const before = await page.evaluate(() => document.querySelector("[data-testid=table]")?.textContent ?? "");
       if (seen.hands % 2 === 0) await page.keyboard.press("Space");
@@ -75,29 +74,23 @@ try {
       await page.waitForFunction((b) => document.querySelector("[data-testid=table]")?.textContent !== b, before);
       continue;
     }
-    if (await page.getByText("Skip ahead").isVisible()) {
-      seen.skipped++;
-      if (seen.skipped % 2) await page.keyboard.press("Space");
-      else await page.getByText("Skip ahead").click();
-      continue;
-    }
     if (await page.getByTestId("action-bar").isVisible()) {
       seen.decisions++;
       seen.maxButtons = Math.max(seen.maxButtons, await page.locator(".main-actions button").count());
-      if (seen.sized < 2 && (await page.getByTestId("amount").isVisible())) {
-        await page.locator(".presets button").nth(1).click();
-        const potLabel = await page.getByTestId("act-raise").innerText();
-        // Type a whole-dollar amount strictly between the minimum and maximum the slider allows.
-        const [lo, hi] = await page.getByTestId("slider").evaluate((el) => [Number(el.min), Number(el.max)]);
-        const dollars = Math.ceil(lo / 100) + 1;
-        if (dollars * 100 < hi) {
-          await page.getByTestId("amount").fill(String(dollars));
-          await page.getByTestId("amount").press("Enter");
-          const typedLabel = await page.getByTestId("act-raise").innerText();
-          assert.ok(typedLabel.includes(`$${dollars} `) || typedLabel.endsWith(`$${dollars}`) || typedLabel.includes(`$${dollars}\n`), `raise button shows the typed $${dollars}: "${typedLabel}"`);
-          assert.notEqual(potLabel, typedLabel, "typing an amount changes the raise button");
+      if (seen.sized < 2 && (await page.getByTestId("act-raise").isVisible())) {
+        // Raise opens the sizer: a preset, then the arrow keys, change the amount on the confirm button.
+        await page.getByTestId("act-raise").click();
+        await page.getByTestId("sizing").waitFor();
+        await page.locator(".presets button").first().click();
+        const presetLabel = await page.getByTestId("act-raise-confirm").innerText();
+        const [value, hi] = await page.getByTestId("slider").evaluate((el) => [Number(el.value), Number(el.max)]);
+        if (value + 100 < hi) {
+          await page.keyboard.press("ArrowUp");
+          assert.notEqual(await page.getByTestId("act-raise-confirm").innerText(), presetLabel, "arrow keys change the amount");
         }
+        await page.getByTestId("act-raise-confirm").click();
         seen.sized++;
+        continue;
       }
       if (seen.decisions === 1) await page.screenshot({ path: `${OUT}/decision.png` });
       if (seen.decisions % 3 === 0) {
@@ -107,13 +100,17 @@ try {
         seen.keyed++;
         continue;
       }
-      for (const id of ["act-raise", "act-call", "act-check"]) {
-        if (await page.getByTestId(id).isVisible()) {
-          await page.getByTestId(id).click();
-          break;
-        }
-      }
+      if (await page.getByTestId("act-raise").isVisible()) {
+        await page.getByTestId("act-raise").click();
+        await page.getByTestId("act-raise-confirm").click();
+      } else if (await page.getByTestId("act-call").isVisible()) await page.getByTestId("act-call").click();
+      else await page.getByTestId("act-check").click();
+      continue;
     }
+    // Nothing to click: the others are still acting. Space skips ahead.
+    seen.skipped++;
+    await page.keyboard.press("Space");
+    await page.waitForTimeout(50);
   }
   console.log("seen", seen);
   assert.ok(seen.hands >= 12, "played 12 hands");
@@ -121,7 +118,7 @@ try {
   assert.ok(seen.mix >= 1, "showed what the opponent likely has");
   assert.ok(seen.read >= 1, "revealed an opponent's style");
   assert.ok(seen.maxButtons <= 3, "fold, check or call, and one raise button");
-  assert.ok(seen.sized >= 1, "sized a bet with a preset and a typed amount");
+  assert.ok(seen.sized >= 1, "sized a bet with a preset and the arrow keys");
   assert.ok(seen.skipped >= 1, "skipped ahead through the others' actions");
   const fits = await page.evaluate(() => document.documentElement.scrollHeight <= window.innerHeight + 1);
   assert.ok(fits, "the play screen fits the window without scrolling");
@@ -130,7 +127,7 @@ try {
   // Mistakes return as practice a few minutes later, not immediately.
   await page.clock.fastForward("05:00");
   await page.getByTestId("tab-progress").click();
-  await page.getByTestId("tab-play").click();
+  await page.getByTestId("tab-progress").click();
   await page.getByTestId("start-drills").click();
   await page.getByTestId("drill-banner").waitFor();
   for (const id of ["act-fold", "act-check", "act-call"]) {
@@ -150,7 +147,7 @@ try {
   await page.screenshot({ path: `${OUT}/progress.png` });
 
   await page.setViewportSize({ width: 390, height: 844 });
-  await page.getByTestId("tab-play").click();
+  await page.getByTestId("tab-progress").click();
   const scrollW = await page.evaluate(() => document.documentElement.scrollWidth);
   assert.ok(scrollW <= 390, `no horizontal scroll on phone width (got ${scrollW})`);
   await page.screenshot({ path: `${OUT}/phone.png`, fullPage: true });

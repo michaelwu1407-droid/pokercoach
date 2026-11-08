@@ -93,7 +93,7 @@ function evKeyPoint(g: Graded, bigBlind: number): string {
 
 const MOVE_WORD = { raise: "a raise", call: "a call", fold: "a fold" } as const;
 
-function chartKeyPoint(g: Graded): string {
+function chartKeyPoint(g: Graded, opponents: Opponents): string {
   if (g.basis.kind !== "chart") return "";
   const { spot, position, opener, bestMove, raiseShare, callShare, continueShare, borderline } = g.basis;
   const hand = prettyClass(g.basis.handClass);
@@ -102,7 +102,8 @@ function chartKeyPoint(g: Graded): string {
     : borderline ? `${hand} is just outside, so this is close. It becomes a raise from a later seat`
     : `${hand} should be ${MOVE_WORD[bestMove]} here`;
   const fold = position === "BB" && spot === "vs-limp" ? "check" : "fold";
-  const from = opener ? `the ${seatName(opener)} seat` : "an earlier seat";
+  const raiser = g.basis.openerSeat !== null ? opponents[g.basis.openerSeat]?.name : undefined;
+  const from = opener ? `${raiser ? `${raiser}, in ` : ""}the ${seatName(opener)} seat` : "an earlier seat";
   switch (spot) {
     case "rfi":
       return `When everyone before you folds and you sit in the ${seatName(position)} seat, raise about ${pct(raiseShare)} of hands and fold the rest. ${verdict}.`;
@@ -144,7 +145,7 @@ export function feedback(g: Grade, concepts: readonly Concept[], opponents: Oppo
       tone: g.verdict, context, headline: headline(g, bigBlind), mix: null, read: null, skill, draw: null,
       summary: `${capital(prettyClass(g.basis.handClass))} is ${MOVE_WORD[g.basis.bestMove]} from the ${seatName(g.basis.position)} seat.`,
       stats: [{ label: "Your hand", value: prettyClass(g.basis.handClass) }, win, { label: "Hands that keep playing here", value: pct(g.basis.continueShare) }],
-      keyPoint: chartKeyPoint(g) + aheadButFold(g), details: [g.basis.source], caveats: [],
+      keyPoint: chartKeyPoint(g, opponents) + aheadButFold(g), details: [g.basis.source], caveats: [],
     };
   }
   const b = g.basis;
@@ -156,7 +157,7 @@ export function feedback(g: Grade, concepts: readonly Concept[], opponents: Oppo
     tone: g.verdict, context, headline: headline(g, bigBlind), mix: b.mix, skill, draw: drawLine(g),
     summary: b.potOddsNeeded !== null
       ? `You had a ${pct(g.win.chance)} chance to win and needed ${pct(b.potOddsNeeded)} to call.`
-      : `You had a ${pct(g.win.chance)} chance to win. ${b.foldToBet === null ? "They rarely fold to a bet." : `They fold to a bet ${pct(b.foldToBet)} of the time.`}`,
+      : `You had a ${pct(g.win.chance)} chance to win. ${b.foldToBet === null || b.foldToBet < 0.05 ? "They almost never fold to a bet." : `They fold to a bet ${pct(b.foldToBet)} of the time.`}`,
     stats: [win, second, ...cost],
     keyPoint: evKeyPoint(g, bigBlind),
     read: opp ? `${opp.name} plays like a ${opp.style.name.toLowerCase()}. ${opp.style.leak}` : null,

@@ -20,6 +20,7 @@ export type Basis =
       readonly position: Position;
       /** Seat of the first raiser, when there is one. */
       readonly opener: Position | null;
+      readonly openerSeat: SeatIndex | null;
       readonly handClass: string;
       readonly bestMove: ChartMove;
       /** You raised a hand that is a standard raise one seat later. */

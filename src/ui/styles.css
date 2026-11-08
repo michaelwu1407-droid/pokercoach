@@ -60,7 +60,10 @@ html, body, #root { height: 100%; }
 .brand { font-weight: 800; margin-right: auto; }
 .tab-on { border-color: var(--accent); }
 
-.play { flex: 1; min-height: 0; display: grid; grid-template-columns: minmax(0, 1fr) 340px; gap: 16px; }
+/* The table takes the full width until there is feedback to show beside it. */
+.play { flex: 1; min-height: 0; display: grid; grid-template-columns: minmax(0, 1fr); gap: 16px; }
+.play.with-coach { grid-template-columns: minmax(0, 1fr) 320px; }
+.play-main { width: 100%; max-width: 980px; justify-self: center; }
 @media (max-width: 900px) {
   .app { height: auto; min-height: 100%; }
   .play { grid-template-columns: minmax(0, 1fr); }
@@ -99,15 +102,8 @@ html, body, #root { height: 100%; }
 .controls { display: grid; gap: 6px; }
 .action-bar { display: grid; gap: 8px; }
 .main-actions { display: flex; gap: 8px; flex-wrap: wrap; }
-.sizing { display: grid; gap: 6px; }
 .presets { display: flex; gap: 6px; flex-wrap: wrap; }
 .chip-on { border-color: var(--accent); background: var(--accent); color: var(--accent-ink); }
-.amount-row { display: flex; gap: 10px; align-items: center; }
-.amount-row input[type="range"] { flex: 1; min-width: 0; accent-color: var(--accent); }
-.amount-box { display: flex; align-items: center; gap: 2px; border: 1px solid var(--border); border-radius: 10px; padding: 4px 8px; background: var(--card); }
-.amount-box input { width: 70px; border: 0; background: transparent; color: var(--ink); font: inherit; font-weight: 700; }
-.waiting { margin: 0; text-align: center; }
-.link { border: 0; background: none; color: var(--accent); text-decoration: underline; padding: 0 4px; }
 .dealer-button { position: absolute; top: -8px; right: -8px; width: 20px; height: 20px; border-radius: 50%; background: #fff; color: #111; font-size: 11px; font-weight: 800; display: grid; place-items: center; border: 1px solid #999; }
 .seat-action { font-size: 12px; font-weight: 700; margin-top: 2px; padding: 1px 6px; border-radius: 6px; background: var(--bg); }
 .action-fold { color: var(--muted); }
@@ -115,7 +111,6 @@ html, body, #root { height: 100%; }
 .seat-winner { border-color: var(--good); box-shadow: 0 0 0 2px var(--good); }
 .result { color: #fff; font-weight: 700; background: rgba(0, 0, 0, 0.35); border-radius: 8px; padding: 4px 10px; text-align: center; max-width: 90%; }
 .main-actions button { flex: 1 1 110px; padding: 12px 10px; font-weight: 700; }
-.banner { background: var(--card); border: 1px solid var(--border); border-radius: var(--radius); padding: 8px 12px; margin: 0 0 8px; }
 
 .coach { background: var(--card); border: 1px solid var(--border); border-radius: var(--radius); padding: 14px; align-self: start; display: grid; gap: 10px; min-width: 0; max-height: 100%; overflow-y: auto; }
 .wide { width: 100%; padding: 12px; font-weight: 700; }
@@ -141,9 +136,6 @@ html, body, #root { height: 100%; }
 .read { margin: 0; font-size: 14px; }
 .details { font-size: 13px; }
 .details p { margin: 4px 0; }
-.review { display: grid; gap: 8px; }
-.outcome { margin: 0; font-weight: 700; }
-.review-list { margin: 0; padding-left: 18px; font-size: 14px; }
 
 .page { max-width: 860px; }
 .empty { padding: 24px; border: 1px dashed var(--border); border-radius: var(--radius); color: var(--muted); }
@@ -180,3 +172,8 @@ kbd { font: inherit; font-size: 11px; opacity: 0.6; border: 1px solid currentCol
 .more-body { display: grid; gap: 10px; margin-top: 10px; }
 .banner { padding: 6px 12px; margin: 0; font-size: 14px; }
 .topbar { flex: none; }
+.card-empty { background: transparent; border: 1px dashed rgba(255, 255, 255, 0.25); }
+.sizer { display: grid; gap: 8px; }
+.sizer input[type="range"] { width: 100%; accent-color: var(--accent); }
+.hand-over { display: flex; align-items: center; justify-content: space-between; gap: 12px; font-weight: 700; }
+.hand-over button { padding: 12px 28px; font-weight: 700; }

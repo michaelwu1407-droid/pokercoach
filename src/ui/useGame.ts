@@ -19,8 +19,6 @@ export interface Game {
   readonly playing: boolean;
   readonly coachState: CoachState;
   readonly learner: Learner;
-  /** True on the first hand at a new table. */
-  readonly newTable: boolean;
   act(action: PlayerAction): void;
   resume(): void;
   /** Shows the rest of the opponents' actions at once. */
@@ -107,8 +105,7 @@ export function useGame(): Game {
   }, [mode]);
 
   const stopDrills = useCallback(() => playHand(0, freshSeed()), []);
-  const isNewTable = mode.kind === "play" && mode.handNo % HANDS_PER_TABLE === 0;
 
   const shown = playing ? { ...hand, events: hand.events.slice(0, shownCount) } : hand;
-  return { mode, hand, shown, playing, skip, coachState, learner, newTable: isNewTable, act, resume, nextHand, startDrills, nextDrill, stopDrills };
+  return { mode, hand, shown, playing, skip, coachState, learner, act, resume, nextHand, startDrills, nextDrill, stopDrills };
 }

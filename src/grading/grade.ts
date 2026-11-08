@@ -65,7 +65,7 @@ function gradeChart(ctx: DecisionContext): GradeCore {
   return {
     graded: true, street: st.street, seat, action, best, evLossBB: null, verdict,
     basis: {
-      kind: "chart", spot: read.spot, source: RESPONSE_CHART_SOURCE, position: read.position, opener: read.opener,
+      kind: "chart", spot: read.spot, source: RESPONSE_CHART_SOURCE, position: read.position, opener: read.opener, openerSeat: read.openerSeat,
       handClass, bestMove, borderline, raiseShare: share(read.chart.raise), callShare: share(read.chart.call),
       continueShare: share(new Set([...read.chart.raise, ...read.chart.call])),
       behind: st.phase === "betting" ? st.pending.filter((p) => p !== seat).length : 0,
