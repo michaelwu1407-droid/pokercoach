@@ -25,10 +25,10 @@ Each finding below changes a design rule. Sources are named so they can be check
 Seven parts. The first two are deterministic code. The LLM lives only in parts 3 and 5.
 
 1. **Game engine.** Deals, enforces legal actions, computes pots and side pots, runs showdown. A hand is an event log reduced to state.
-2. **Evaluator (ground truth).** Hand ranking, equity vs a range, pot odds, and the best action with its EV for a given spot. Starts with precomputed preflop ranges and equity math. Postflop grows into a solver. This is what makes feedback correct.
+2. **Evaluator (ground truth).** Hand ranking, equity vs a range, pot odds, and the best action with its EV for a given spot. Preflop uses open-raise charts. Heads-up postflop spots get an EV for each option from a one-step lookahead against the bot's known strategy. A solver is the upgrade path. This is what makes feedback correct.
 3. **Knowledge base.** Turns the owner's textbooks into concepts. Each concept has a name, a plain statement, prerequisites, the situations where it applies, and cited source chunks.
 4. **Learner model.** Per-concept mastery estimate, review schedule, and a leak list built from graded decisions.
-5. **Coach.** Policy that decides when to interrupt, what to ask, and what to drill next. Uses the LLM to explain the evaluator's result in the language of the cited concept.
+5. **Coach.** Policy that decides when to interrupt, what to ask, and what to drill next. Explanations are built only from the grader's numbers and pass a check that rejects any number the grader did not produce. The LLM works offline, in book extraction.
 6. **Opponents.** Bots with named, stable styles (tight-passive, loose-aggressive, calling station). They let a spot recur on purpose and make exploits teachable.
 7. **Measurement.** EV loss per decision, per concept, over time. This is the north-star metric.
 
@@ -36,7 +36,7 @@ Seven parts. The first two are deterministic code. The LLM lives only in parts 3
 
 Named first, per pstack's Foundational Thinking and Model the Domain.
 
-- `HandEvent`. Discriminated union of `Deal | Post | Fold | Check | Call | Bet | Raise | Reveal | Award`. The hand is `HandEvent[]`.
+- `HandEvent`. Discriminated union of `Start | Fold | Check | Call | Bet | Raise`. `Start` carries the table and the shuffled deck, so blinds, deals and payouts are derived, never stored. The hand is `HandEvent[]`.
 - `Spot`. A decision point derived from the log: position, stacks, pot, board, action history, hero cards. Pure data, hashable.
 - `Grade`. `{ spot, action, bestAction, evLossBB, conceptIds }`. Produced only by the evaluator.
 - `Concept`. `{ id, statement, prerequisites, appliesWhen: SpotPredicate, sources: ChunkRef[] }`. `appliesWhen` is code, so the coach can find matching spots by query.
@@ -77,10 +77,25 @@ Each phase ends in a check that runs, per pstack's Sequence Work into Verifiable
 2. **Evaluator, preflop.** Exit when equity matches a reference calculator within 0.5% on a fixed test set, and preflop grades match the chosen range charts.
 3. **Playable table with bots.** Exit when the owner plays a full session in the browser, driven end to end by a UI test.
 4. **Grading and review.** Exit when every decision in a session gets a `Grade` and the review screen shows them.
-5. **Knowledge base from one book.** Exit when 20 approved concepts each link to a predicate and a passing evaluator check.
+5. **Knowledge base from one book.** Exit when ingest, extraction and review run on a real book, every approved concept quotes its source word for word, and an invented quote is rejected. Book concepts teach but never grade. Only built-in concepts, whose claims the grader measures, take credit for a grade.
 6. **Coach loop.** Exit when Predict, Reveal, Explain fires on tagged spots, cites a source, and passes the "no invented numbers" test.
 7. **Learner model and spaced drills.** Exit when a missed concept reappears on schedule and mastery moves on correct play.
 8. **Measure impact.** Exit when a fixed benchmark spot set shows EV loss per decision trending over four weeks of use.
+
+## Status (2026-11-08)
+
+| Phase | State | Evidence |
+|---|---|---|
+| 1 Engine | Done | `src/engine/engine.test.ts`. 100k random hands conserve chips and replay identically. |
+| 2 Evaluator | Done | `src/evaluator/*.test.ts`. All 2,598,960 five-card hands match the known category counts. Equity matches outs counting exactly. |
+| 3 Table with bots | Done | `scripts/e2e.mjs` plays 12 hands in Chromium. Bot styles verified by simulated VPIP in `src/bots/bots.test.ts`. |
+| 4 Grading and review | Done | `src/grading/grade.test.ts`, `src/session/session.test.ts`. Every hero decision gets a grade or a stated reason it has none. |
+| 5 Knowledge base | Built, waiting on a book and an API key | `src/kb/kb.test.ts`. Ingest tested on PDF, EPUB and text. Extraction reaches the API and stops at authentication. |
+| 6 Coach loop | Done | Number-grounding check runs on every message in a 150-hand simulated session. |
+| 7 Spaced drills | Done | e2e fast-forwards the clock 5 minutes and drills come due. |
+| 8 Measure impact | Instrumented, needs four weeks of play | Progress tab shows EV lost per decision by week and the biggest leaks. |
+
+Gaps, in order of teaching impact: preflop spots other than raise-first-in are not graded; multiway pots are not graded; postflop EV ignores later streets. Each ungraded spot says why in the review.
 
 ## Product calls defaulted (change any)
 
