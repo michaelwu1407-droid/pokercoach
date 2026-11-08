@@ -16,6 +16,7 @@ export type Basis =
       /** Hero's showdown equity against the inferred range, before anyone acts. */
       readonly equity: number;
       readonly potOddsNeeded: number | null;
+      /** Effective number of equally likely hands in the inferred range. */
       readonly rangeSize: number;
       /** Plain-English list of what this number simplifies. Shown to the learner. */
       readonly approximations: readonly string[];

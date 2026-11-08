@@ -29,3 +29,7 @@ export function villainRange(events: readonly HandEvent[], villain: SeatIndex, s
   const total = live.reduce((s, w) => s + w.weight, 0);
   return live.map((w) => ({ combo: w.combo, weight: w.weight / total }));
 }
+
+/** How many equally likely hands the range is worth. Near-zero weights barely count. */
+export const effectiveSize = (range: readonly WeightedCombo[]) =>
+  Math.round(1 / range.reduce((s, w) => s + w.weight * w.weight, 0));

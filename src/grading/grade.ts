@@ -8,7 +8,7 @@ import { equityVsCombo } from "../evaluator/equity";
 import { positionOf, RFI } from "../evaluator/preflopCharts";
 import { classOf, type Combo, type WeightedCombo } from "../evaluator/ranges";
 import { type ActionValue, type Grade, verdictFor } from "./types";
-import { villainRange } from "./villainRange";
+import { effectiveSize, villainRange } from "./villainRange";
 
 export interface DecisionContext {
   /** Every event before the decision. Reducing them gives `state`. */
@@ -126,7 +126,7 @@ function gradeEv(ctx: DecisionContext): Grade {
   const evLossBB = Math.max(0, best.evBB - chosen.evBB);
   return {
     graded: true, street: st.street, seat: hero, action, best: best.action, evLossBB, verdict: verdictFor(evLossBB),
-    basis: { kind: "ev", values, equity, potOddsNeeded, rangeSize: range.length, approximations },
+    basis: { kind: "ev", values, equity, potOddsNeeded, rangeSize: effectiveSize(range), approximations },
   };
 }
 
