@@ -1,10 +1,9 @@
 import { useCallback, useEffect, useReducer, useState } from "react";
-import type { Opponents } from "../bots/opponents";
 import type { PlayerAction } from "../engine/types";
 import type { Grade } from "../grading/types";
 import { CORE_CONCEPTS } from "../learn/concepts";
 import { drillQueue, learnFrom, type Learner, type SavedSpot } from "../learn/learner";
-import { advance, conceptsAt, type Hand, HANDS_PER_TABLE, newHand, newTable, state } from "../session/session";
+import { advance, conceptsAt, freshStacks, type Hand, HANDS_PER_TABLE, newHand, newTable, nextTable, state, type Table } from "../session/session";
 import { gradeLater } from "./grader";
 import { loadLearner, saveLearner } from "./store";
 
@@ -12,8 +11,8 @@ import { loadLearner, saveLearner } from "./store";
 export const ACTION_DELAY_MS = 450;
 
 export type Mode =
-  | { readonly kind: "play"; readonly handNo: number; readonly opponents: Opponents }
-  | { readonly kind: "drill"; readonly queue: readonly SavedSpot[]; readonly index: number };
+  | ({ readonly kind: "play" } & Table)
+  | { readonly kind: "drill"; readonly queue: readonly SavedSpot[]; readonly index: number; readonly resume: Table };
 
 /** One of your decisions this hand. The grade arrives from the worker a moment later. */
 export interface Decision {
@@ -61,15 +60,18 @@ function reducer(s: GameState, e: Event): GameState {
 
 const freshSeed = () => Math.floor(Math.random() * 2 ** 31);
 
-function dealPlay(handNo: number, opponents: Opponents): Event {
-  return { type: "deal", mode: { kind: "play", handNo, opponents }, hand: newHand(freshSeed(), handNo, opponents) };
+function dealPlay(table: Table): Event {
+  return { type: "deal", mode: { kind: "play", ...table }, hand: newHand(freshSeed(), table.handNo, table.opponents, table.stacks) };
 }
+
+const firstTable = (): Table => ({ handNo: 0, opponents: newTable(freshSeed()), stacks: freshStacks(), net: 0, arrivals: [] });
+const tableOf = (m: Mode): Table => (m.kind === "play" ? m : m.resume);
 
 export function useGame() {
   const [learner, setLearner] = useState<Learner>(loadLearner);
   const [s, dispatch] = useReducer(reducer, null, () => {
-    const opponents = newTable(freshSeed());
-    return dealt({ kind: "play", handNo: 0, opponents }, newHand(freshSeed(), 0, opponents));
+    const table = firstTable();
+    return dealt({ kind: "play", ...table }, newHand(freshSeed(), 0, table.opponents, table.stacks));
   });
   useEffect(() => saveLearner(learner), [learner]);
 
@@ -93,30 +95,31 @@ export function useGame() {
   }, [s]);
 
   const nextHand = useCallback(() => {
-    if (s.mode.kind !== "play") return dispatch(dealPlay(0, newTable(freshSeed())));
-    const handNo = s.mode.handNo + 1;
-    dispatch(dealPlay(handNo, handNo % HANDS_PER_TABLE === 0 ? newTable(freshSeed()) : s.mode.opponents));
-  }, [s.mode]);
+    if (s.mode.kind === "play") dispatch(dealPlay(nextTable(s.mode, s.hand, freshSeed())));
+  }, [s.mode, s.hand]);
 
   const startDrills = useCallback(() => {
     const queue = drillQueue(learner, Date.now());
     const first = queue[0];
-    if (first) dispatch({ type: "deal", mode: { kind: "drill", queue, index: 0 }, hand: first.hand });
-  }, [learner]);
+    if (first) dispatch({ type: "deal", mode: { kind: "drill", queue, index: 0, resume: nextTable(tableOf(s.mode), s.hand, freshSeed()) }, hand: first.hand });
+  }, [learner, s.mode, s.hand]);
 
   const nextDrill = useCallback(() => {
     if (s.mode.kind !== "drill") return;
     const index = s.mode.index + 1;
     const spot = s.mode.queue[index];
-    dispatch(spot ? { type: "deal", mode: { ...s.mode, index }, hand: spot.hand } : dealPlay(0, newTable(freshSeed())));
+    dispatch(spot ? { type: "deal", mode: { ...s.mode, index }, hand: spot.hand } : dealPlay(s.mode.resume));
   }, [s.mode]);
 
-  const stopDrills = useCallback(() => dispatch(dealPlay(0, newTable(freshSeed()))), []);
+  const stopDrills = useCallback(() => {
+    if (s.mode.kind === "drill") dispatch(dealPlay(s.mode.resume));
+  }, [s.mode]);
   const skip = useCallback(() => dispatch({ type: "skip" }), []);
   const shown: Hand = playing ? { ...s.hand, events: s.hand.events.slice(0, s.shown) } : s.hand;
   const newTableHand = s.mode.kind === "play" && s.mode.handNo % HANDS_PER_TABLE === 0;
+  const table = tableOf(s.mode);
 
-  return { mode: s.mode, hand: s.hand, shown, playing, decisions: s.decisions, learner, newTableHand, act, skip, nextHand, startDrills, nextDrill, stopDrills };
+  return { mode: s.mode, table, hand: s.hand, shown, playing, decisions: s.decisions, learner, newTableHand, act, skip, nextHand, startDrills, nextDrill, stopDrills };
 }
 
 export type Game = ReturnType<typeof useGame>;

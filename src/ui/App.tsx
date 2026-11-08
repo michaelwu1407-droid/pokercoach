@@ -65,7 +65,7 @@ export function App() {
                 {handOver && (
                   <div className="hand-over" data-testid="review">
                     <span>
-                      {signedMoney(net, bb)} this hand
+                      {signedMoney(net, bb)} this hand{drilling ? "" : ` · ${signedMoney(game.table.net + net, bb)} since you sat down`}
                       {misses > 0 ? ` · ${misses} mistake${misses > 1 ? "s" : ""} saved for practice` : ""}
                     </span>
                     <button className="primary" data-testid="next-hand" onClick={game.nextHand}>Next hand</button>
@@ -76,7 +76,8 @@ export function App() {
             </div>
           </div>
           <CoachPanel key={game.hand.seed} decisions={game.decisions} opponents={game.hand.opponents} bigBlind={bb}
-            moment={heroTurn ? "turn" : handOver ? "review" : "watching"} newTable={game.newTableHand} />
+            moment={heroTurn ? "turn" : handOver ? "review" : "watching"} newTable={game.newTableHand}
+            arrivals={drilling ? [] : game.table.arrivals} />
         </main>
       ) : (
         <Progress learner={game.learner} concepts={CORE_CONCEPTS} />

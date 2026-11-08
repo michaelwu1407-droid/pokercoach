@@ -90,38 +90,27 @@ export function chartSummary(g: Graded, describe: (a: PlayerAction) => string): 
   return `${rowLine(row, RAISE_VERB[spot])} ${verdict}`;
 }
 
-const oneIn = (share: number) => `roughly 1 in ${Math.max(1, Math.round(1 / share))}`;
-
-/**
- * The percentage to know, a rule of thumb for getting it roughly, and what it means for your play.
- * Three short sentences at most.
- */
+/** A rule of thumb for the percentage shown above it, so you can estimate it at the table. One or two sentences. */
 export function chartKeyPoint(g: Graded, opponents: Opponents): string {
   if (g.basis.kind !== "chart") return "";
-  const { spot, position, opener, bestMove, behind, raiseShare, callShare, continueShare, openerShare, ladder } = g.basis;
-  const play = `${pct(continueShare)} of hands (${oneIn(continueShare)})`;
-  const foldRest = `fold the other ${pct(g.basis.foldShare)}`;
+  const { spot, bestMove, behind, openerShare, ladder } = g.basis;
   const raiser = g.basis.openerSeat !== null ? opponents[g.basis.openerSeat]?.name : undefined;
   const ahead = bestMove === "fold" && g.win.chance >= 0.5 && behind > 0
     ? ` Being ahead of one random hand is not enough: ${behind} player${behind > 1 ? "s" : ""} still act${behind > 1 ? "" : "s"} after you.`
     : "";
-  const split = callShare > 0.005 && raiseShare > 0.005 ? ` (${pct(raiseShare)} ${spot === "vs-open" ? "re-raise" : "raise again"}, ${pct(callShare)} call)` : "";
   switch (spot) {
     case "rfi": {
       const rule = ladder.map((l) => `${seatName(l.position)} ${l.roughPct}%`).join(", ");
-      return `Nobody has raised and you are in the ${seatName(position)} seat: raise ${play}, ${foldRest}. Rule of thumb: ${rule}. Fewer players behind you means fewer who can hold a better hand.${ahead}`;
+      return `Rule of thumb when nobody has raised: ${rule}. The later your seat, the fewer players behind you who could hold a better hand.${ahead}`;
     }
     case "vs-limp":
-      return `Players only called the big blind, which usually means a medium hand: raise your best ${play} to take the pot, and ${foldRest}. Rule of thumb: a bit tighter than if nobody had called.${ahead}`;
-    case "vs-open": {
-      const who = `${raiser ?? "The raiser"}${opener ? ` (${seatName(opener)} seat)` : ""}`;
-      const theirs = openerShare !== null ? `${who} raises with about ${pct(openerShare)} of hands, so you` : "You";
-      return `${theirs} play only about ${pct(continueShare)}${split}. Rule of thumb: against a raise, play only hands that beat most of theirs. Everything else folds, even hands you would raise yourself.${ahead}`;
-    }
+      return `Rule of thumb: when players only call the big blind, raise your good hands to take the pot and fold the rest.${ahead}`;
+    case "vs-open":
+      return `Rule of thumb: ${openerShare !== null ? `${raiser ?? "the raiser"} raises with about ${pct(openerShare)} of hands, so ` : ""}play only hands that beat most of theirs.${ahead}`;
     case "vs-3bet":
-      return `Your raise was re-raised: keep playing with only ${play}${split}. Rule of thumb: every extra raise means a stronger hand, so the list of hands worth playing shrinks fast.`;
+      return "Rule of thumb: every extra raise means a stronger hand, so far fewer hands are worth playing.";
     case "vs-4bet":
-      return `After a raise and a re-raise, only ${play} keep playing, the very best pairs and Ace-King. Everything else folds.`;
+      return "Rule of thumb: after a raise and a re-raise, only the very best hands keep playing.";
   }
 }
 

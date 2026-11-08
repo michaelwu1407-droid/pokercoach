@@ -1,4 +1,3 @@
-import { prettyClass } from "../cards/card";
 import type { Opponents } from "../bots/opponents";
 import type { PlayerAction, Street } from "../engine/types";
 import type { MixShare } from "../grading/rangeMix";
@@ -6,11 +5,10 @@ import { aggressive, type Grade, type Graded, type Verdict, type Win } from "../
 import { chartKeyPoint, chartSummary, drawLine, evKeyPoint, pct, quotedBet } from "./reasons";
 import { allInLabel, dollars, money, seatName, signedMoney } from "./words";
 
+/** A number and what it means, read as one line: "37%  how often you win against Gus's likely hands". */
 export interface Stat {
-  readonly label: string;
   readonly value: string;
-  /** What the number means, in one plain line. Left out when the label says it all. */
-  readonly hint?: string;
+  readonly means: string;
 }
 
 export interface Feedback {
@@ -72,10 +70,10 @@ function headline(g: Graded, bb: number): string {
   }
 }
 
-function winLabel(w: Win, opponents: Opponents): string {
-  if (w.against.length === 0) return "Chance to win vs a random hand";
-  if (w.against.length === 1) return `Chance to win vs ${opponents[w.against[0]!]?.name ?? "1 player"}`;
-  return `Chance to win vs ${w.against.length} players`;
+function whoAgainst(w: Win, opponents: Opponents): string {
+  if (w.against.length === 0) return "a random hand";
+  if (w.against.length === 1) return `${opponents[w.against[0]!]?.name ?? "their"}'s likely hands`;
+  return `the likely hands of the ${w.against.length} players still in`;
 }
 
 export function feedback(g: Grade, opponents: Opponents, bb: number): Feedback {
@@ -84,21 +82,16 @@ export function feedback(g: Grade, opponents: Opponents, bb: number): Feedback {
     return { tone: "ungraded", context: ctx, headline: "Not graded", summary: g.reason, stats: [], mix: null, keyPoint: g.reason, draw: null, read: null, details: [], caveats: [] };
   }
   const describe = (a: PlayerAction) => describeAction(a, bb, g.allInTo);
-  const win: Stat = {
-    label: winLabel(g.win, opponents), value: pct(g.win.chance),
-    hint: "How often your hand ends up best if all the cards are dealt out, against the hands they likely hold.",
-  };
-  const cost: Stat[] = g.verdict !== "good" && g.evLossBB !== null ? [{
-    label: "Cost on average", value: `−${dollars(g.evLossBB)}`,
-    hint: "What your choice loses next to the best one, averaged over every hand they could hold. One hand's result can differ; this is what it costs over time.",
-  }] : [];
+  const win: Stat = { value: pct(g.win.chance), means: `how often you win against ${whoAgainst(g.win, opponents)} if all the cards come out.` };
+  const cost: Stat[] = g.verdict !== "good" && g.evLossBB !== null
+    ? [{ value: `−${dollars(g.evLossBB)}`, means: "what this choice loses on average, next to the best play." }]
+    : [];
   const base = { tone: g.verdict, context: context(g, opponents, bb), headline: headline(g, bb) };
   if (g.basis.kind === "chart") {
-    const hand = prettyClass(g.basis.handClass);
     return {
       ...base, mix: null, read: null, draw: null, details: [g.basis.source], caveats: [],
       summary: chartSummary(g, describe),
-      stats: [{ label: "Your hand", value: hand }, win, { label: "Hands worth playing here", value: pct(g.basis.continueShare), hint: "Out of every starting hand you could be dealt, the share worth playing in this spot. The rest are folds." }],
+      stats: [{ value: pct(g.basis.continueShare), means: `of all starting hands are worth playing here, about 1 in ${g.basis.playOneIn}. Fold the rest.` }, win],
       keyPoint: chartKeyPoint(g, opponents),
     };
   }
@@ -108,10 +101,10 @@ export function feedback(g: Grade, opponents: Opponents, bb: number): Feedback {
   const foldLine = fold === null || fold < 0.05 ? "They almost never fold to a bet." : `They fold to ${describe(bet!.action)} ${pct(fold)} of the time.`;
   const second: Stat = b.potOddsNeeded !== null
     ? {
-      label: "Needed to call", value: pct(b.potOddsNeeded),
-      hint: `The price of calling. You pay a little to win the whole pot, so calling pays off if you win at least ${pct(b.potOddsNeeded)} of the time. You win ${pct(g.win.chance)}, so ${g.win.chance >= b.potOddsNeeded ? "calling pays" : "calling loses money"}.`,
+      value: pct(b.potOddsNeeded),
+      means: `the least you must win for a call to pay off. ${g.win.chance >= b.potOddsNeeded ? "Your chance is higher, so calling pays." : "Your chance is lower, so calling loses money."}`,
     }
-    : { label: "They fold to a bet", value: fold === null || fold < 0.05 ? "rarely" : pct(fold), hint: "How often a bet wins the pot straight away, with no showdown." };
+    : { value: fold === null || fold < 0.05 ? "rarely" : pct(fold), means: "how often a bet makes them fold, so you win the pot at once." };
   const opp = opponents[b.villain];
   return {
     ...base, mix: b.mix, draw: drawLine(g),
@@ -130,4 +123,4 @@ export function feedback(g: Grade, opponents: Opponents, bb: number): Feedback {
 }
 
 export const feedbackText = (f: Feedback) =>
-  [f.context, f.headline, f.summary, ...f.stats.map((s) => `${s.label} ${s.value} ${s.hint ?? ""}`), f.keyPoint, f.draw ?? "", f.read ?? "", ...f.details, ...f.caveats].join(" ");
+  [f.context, f.headline, f.summary, ...f.stats.map((s) => `${s.value} ${s.means}`), f.keyPoint, f.draw ?? "", f.read ?? "", ...f.details, ...f.caveats].join(" ");

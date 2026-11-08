@@ -32,18 +32,13 @@ export function FeedbackCard({ f }: { f: Feedback }) {
         <summary>More detail</summary>
         <div className="more-body">
           {f.stats.length > 0 && (
-            <div className="stats">
+            <ul className="stats" data-testid="stats">
               {f.stats.map((s) => (
-                <div key={s.label} className="stat">
-                  <div className="stat-value">{s.value}</div>
-                  <div className="stat-label">{s.label}</div>
-                </div>
+                <li key={s.means} className="stat">
+                  <b className="stat-value">{s.value}</b>
+                  <span className="stat-means">{s.means}</span>
+                </li>
               ))}
-            </div>
-          )}
-          {f.stats.some((s) => s.hint) && (
-            <ul className="stat-hints" data-testid="stat-hints">
-              {f.stats.map((s) => s.hint && <li key={s.label}><b>{s.label}:</b> {s.hint}</li>)}
             </ul>
           )}
           {f.mix && (

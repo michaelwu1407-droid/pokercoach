@@ -35,3 +35,11 @@ export function randomOpponents(rng: () => number, seats: readonly SeatIndex[]):
 
 export const stylesOf = (o: Opponents): Readonly<Record<SeatIndex, Style>> =>
   Object.fromEntries(Object.entries(o).map(([seat, op]) => [Number(seat), op.style]));
+
+/** A new player with a random style takes an empty seat. Their name is not one already at the table. */
+export function newcomer(o: Opponents, seat: SeatIndex, rng: () => number): Opponents {
+  const used = new Set(Object.values(o).map((p) => p.name));
+  const name = shuffled(rng, NAMES.filter((n) => !used.has(n)))[0] ?? `Player ${seat}`;
+  const style = STYLES[STYLE_IDS[Math.floor(rng() * STYLE_IDS.length)]!];
+  return { ...o, [seat]: { name, style: individual(style, rng) } };
+}

@@ -90,3 +90,11 @@ A mistake is saved once per spot, comes back after two minutes, and is retired w
 ## 21. Browser test is deterministic
 
 The browser test seeds the app's random numbers, so a failure always reproduces. Unit tests cover the variety of hands.
+
+## 22. Chips carry over; broke opponents are replaced
+
+Each hand starts with the chips everyone ended the last one with. You buy back in for $100 when broke. An opponent who goes broke leaves and a new random player sits down, so the table keeps changing and reads must be updated. The hand-over line shows your result since you sat down. Leaving a hand for practice drops that hand, so its chips stay where they were.
+
+## 23. Numbers are read as sentences
+
+Each number on a card sits beside one plain line saying what it means ("13%: of all starting hands are worth playing here, about 1 in 8"). Separate labels and explanation lists were removed: too much to read and still unclear. Preflop rules name real hands ("Queen-Jack suited or better") and give a short rule of thumb per situation.
