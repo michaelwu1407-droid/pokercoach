@@ -35,7 +35,7 @@ try {
   await page.getByTestId("table").waitFor();
   assert.ok(await page.getByTestId("new-table").isVisible(), "first hand announces a new table");
   assert.match(await page.getByTestId("you-have").innerText(), /You have: /);
-  const seen = { keyed: 0, feedback: 0, mix: 0, read: 0, pauses: 0, hands: 0, decisions: 0, maxButtons: 0 };
+  const seen = { keyed: 0, sized: 0, skipped: 0, feedback: 0, mix: 0, read: 0, pauses: 0, hands: 0, decisions: 0, maxButtons: 0 };
   let lastFeedback = "";
 
   // A deliberately loose player: raise when possible, else call. It makes mistakes the coach must catch.
@@ -49,7 +49,12 @@ try {
       if (text !== lastFeedback) {
         lastFeedback = text;
         seen.feedback++;
-        assert.ok((await page.getByTestId("key-point").innerText()).length > 10, "every feedback card has a key point");
+        assert.ok((await page.getByTestId("summary").innerText()).length > 10, "every feedback card has a one-line summary");
+        if (seen.feedback === 1) {
+          assert.equal(await page.getByTestId("key-point").isVisible(), false, "detail starts folded away");
+          await page.locator(".more > summary").click();
+        }
+        assert.ok((await page.getByTestId("key-point").innerText()).length > 10, "detail stays open once opened");
         if (await page.getByTestId("range-mix").isVisible()) seen.mix++;
         if (await page.getByTestId("read").isVisible()) seen.read++;
         if (seen.mix === 1 && (await page.getByTestId("range-mix").isVisible())) await page.screenshot({ path: `${OUT}/feedback.png` });
@@ -70,9 +75,30 @@ try {
       await page.waitForFunction((b) => document.querySelector("[data-testid=table]")?.textContent !== b, before);
       continue;
     }
+    if (await page.getByText("Skip ahead").isVisible()) {
+      seen.skipped++;
+      if (seen.skipped % 2) await page.keyboard.press("Space");
+      else await page.getByText("Skip ahead").click();
+      continue;
+    }
     if (await page.getByTestId("action-bar").isVisible()) {
       seen.decisions++;
-      seen.maxButtons = Math.max(seen.maxButtons, await page.getByTestId("action-bar").locator("button").count());
+      seen.maxButtons = Math.max(seen.maxButtons, await page.locator(".main-actions button").count());
+      if (seen.sized < 2 && (await page.getByTestId("amount").isVisible())) {
+        await page.locator(".presets button").nth(1).click();
+        const potLabel = await page.getByTestId("act-raise").innerText();
+        // Type a whole-dollar amount strictly between the minimum and maximum the slider allows.
+        const [lo, hi] = await page.getByTestId("slider").evaluate((el) => [Number(el.min), Number(el.max)]);
+        const dollars = Math.ceil(lo / 100) + 1;
+        if (dollars * 100 < hi) {
+          await page.getByTestId("amount").fill(String(dollars));
+          await page.getByTestId("amount").press("Enter");
+          const typedLabel = await page.getByTestId("act-raise").innerText();
+          assert.ok(typedLabel.includes(`$${dollars} `) || typedLabel.endsWith(`$${dollars}`) || typedLabel.includes(`$${dollars}\n`), `raise button shows the typed $${dollars}: "${typedLabel}"`);
+          assert.notEqual(potLabel, typedLabel, "typing an amount changes the raise button");
+        }
+        seen.sized++;
+      }
       if (seen.decisions === 1) await page.screenshot({ path: `${OUT}/decision.png` });
       if (seen.decisions % 3 === 0) {
         const events = await page.evaluate(() => document.querySelector("[data-testid=table]")?.textContent ?? "");
@@ -94,7 +120,11 @@ try {
   assert.ok(seen.feedback >= 5, "feedback after decisions");
   assert.ok(seen.mix >= 1, "showed what the opponent likely has");
   assert.ok(seen.read >= 1, "revealed an opponent's style");
-  assert.ok(seen.maxButtons <= 5, "at most five action buttons");
+  assert.ok(seen.maxButtons <= 3, "fold, check or call, and one raise button");
+  assert.ok(seen.sized >= 1, "sized a bet with a preset and a typed amount");
+  assert.ok(seen.skipped >= 1, "skipped ahead through the others' actions");
+  const fits = await page.evaluate(() => document.documentElement.scrollHeight <= window.innerHeight + 1);
+  assert.ok(fits, "the play screen fits the window without scrolling");
   assert.ok(seen.keyed >= 3, "keyboard shortcuts drove some decisions");
 
   // Mistakes return as practice a few minutes later, not immediately.

@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useCallback, useState } from "react";
 import { drillQueue } from "../learn/learner";
 import { HERO, state } from "../session/session";
 import { describeHand } from "../evaluator/describe";
@@ -9,18 +9,23 @@ import { Progress } from "./Progress";
 import { ALL_CONCEPTS } from "./store";
 import { Table } from "./Table";
 import { useGame } from "./useGame";
+import { useKeys } from "./useKeys";
 
 export function App() {
   const game = useGame();
   const [tab, setTab] = useState<"play" | "progress">("play");
   // First visit opens the guide, so someone new to poker knows the hands and the words.
   const [help, setHelp] = useState(() => game.learner.log.length === 0);
-  const st = state(game.hand);
+  // Everything on the table follows the hand as played out so far, so opponents act one at a time.
+  const st = state(game.shown);
   const drilling = game.mode.kind === "drill";
   const paused = game.coachState.kind === "feedback" && game.coachState.paused;
   const answered = game.mode.kind === "drill" && game.mode.answered;
-  const heroTurn = st.phase === "betting" && st.toAct === HERO && !paused && !answered;
+  const heroTurn = !game.playing && st.phase === "betting" && st.toAct === HERO && !paused && !answered;
+  const decisionKey = `${game.hand.seed}:${game.shown.events.length}:${game.mode.kind === "drill" ? game.mode.index : "play"}`;
   const due = drillQueue(game.learner, Date.now()).length;
+  const skipKey = useCallback((k: string) => (k === " " || k === "enter") && (game.skip(), true), [game.skip]);
+  useKeys(game.playing ? skipKey : null);
 
   return (
     <div className="app">
@@ -44,9 +49,12 @@ export function App() {
             {game.newTable && game.coachState.kind === "idle" && (
               <p className="banner" data-testid="new-table">New table. Watch how each player bets. The coach tells you what they are after each decision.</p>
             )}
-            <Table st={st} />
-            <p className="you-have" data-testid="you-have">You have: <b>{describeHand(st.seats[HERO]!.hole, st.board)}</b></p>
-            {heroTurn && <ActionBar st={st} onAct={game.act} />}
+            <Table st={st} events={game.shown.events} onSkip={game.skip} />
+            <div className="controls">
+              <p className="you-have" data-testid="you-have">You have: <b>{describeHand(st.seats[HERO]!.hole, st.board)}</b></p>
+              {heroTurn && <ActionBar key={decisionKey} st={st} onAct={game.act} />}
+              {game.playing && <p className="waiting muted">Waiting for the others… <button className="link" onClick={game.skip}>Skip ahead</button></p>}
+            </div>
           </div>
           <CoachPanel coachState={game.coachState} st={st} opponents={game.hand.opponents} grades={game.hand.grades}
             drilling={drilling} onResume={game.resume} onNext={drilling ? game.nextDrill : game.nextHand} />

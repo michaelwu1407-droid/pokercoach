@@ -11,6 +11,8 @@ export interface Feedback {
   /** Which decision this is about, since play may have moved on. */
   readonly context: string;
   readonly headline: string;
+  /** One short line with the number that decided it. Everything else sits behind "More detail". */
+  readonly summary: string;
   /** At most three numbers, the ones the decision turned on. Chance to win comes first. */
   readonly stats: readonly { readonly label: string; readonly value: string }[];
   readonly mix: readonly MixShare[] | null;
@@ -133,13 +135,14 @@ export function feedback(g: Grade, concepts: readonly Concept[], opponents: Oppo
   const skill = concepts[0]?.title ?? null;
   const context = `Your ${g.street} decision: ${describeAction(g.action, bigBlind)}`;
   if (!g.graded) {
-    return { tone: "ungraded", context, headline: "Not graded", stats: [], mix: null, keyPoint: g.reason, draw: null, read: null, skill, details: [], caveats: [] };
+    return { tone: "ungraded", context, headline: "Not graded", summary: g.reason, stats: [], mix: null, keyPoint: g.reason, draw: null, read: null, skill, details: [], caveats: [] };
   }
   const win = { label: winLabel(g.win), value: pct(g.win.chance) };
   const cost = g.verdict !== "good" && g.evLossBB !== null ? [{ label: "Cost on average", value: `−${dollars(g.evLossBB)}` }] : [];
   if (g.basis.kind === "chart") {
     return {
       tone: g.verdict, context, headline: headline(g, bigBlind), mix: null, read: null, skill, draw: null,
+      summary: `${capital(prettyClass(g.basis.handClass))} is ${MOVE_WORD[g.basis.bestMove]} from the ${seatName(g.basis.position)} seat.`,
       stats: [{ label: "Your hand", value: prettyClass(g.basis.handClass) }, win, { label: "Hands that keep playing here", value: pct(g.basis.continueShare) }],
       keyPoint: chartKeyPoint(g) + aheadButFold(g), details: [g.basis.source], caveats: [],
     };
@@ -151,6 +154,9 @@ export function feedback(g: Grade, concepts: readonly Concept[], opponents: Oppo
   const opp = opponents[b.villain];
   return {
     tone: g.verdict, context, headline: headline(g, bigBlind), mix: b.mix, skill, draw: drawLine(g),
+    summary: b.potOddsNeeded !== null
+      ? `You had a ${pct(g.win.chance)} chance to win and needed ${pct(b.potOddsNeeded)} to call.`
+      : `You had a ${pct(g.win.chance)} chance to win. ${b.foldToBet === null ? "They rarely fold to a bet." : `They fold to a bet ${pct(b.foldToBet)} of the time.`}`,
     stats: [win, second, ...cost],
     keyPoint: evKeyPoint(g, bigBlind),
     read: opp ? `${opp.name} plays like a ${opp.style.name.toLowerCase()}. ${opp.style.leak}` : null,
@@ -163,4 +169,4 @@ export function feedback(g: Grade, concepts: readonly Concept[], opponents: Oppo
 }
 
 export const feedbackText = (f: Feedback) =>
-  [f.context, f.headline, ...f.stats.map((s) => `${s.label} ${s.value}`), f.keyPoint, f.draw ?? "", f.read ?? "", ...f.details, ...f.caveats].join(" ");
+  [f.context, f.headline, f.summary, ...f.stats.map((s) => `${s.label} ${s.value}`), f.keyPoint, f.draw ?? "", f.read ?? "", ...f.details, ...f.caveats].join(" ");

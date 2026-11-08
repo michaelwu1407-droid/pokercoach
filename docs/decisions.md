@@ -69,3 +69,11 @@ A beginner tester hit "T" for ten and "bb" for big blind on the first screen. Ev
 ## 15. Chance to win on every card, and the rule of 2 and 4
 
 Every card leads with your chance to win: against everyone still in after the flop, against the players who put money in before it, or against one random hand when nobody has. A draw adds its exact out count and the in-your-head estimate (outs × 4 on the flop, × 2 on the turn). The guide's cheat sheet of break-even calls and common matchups is checked against the evaluator by a test.
+
+## 16. A simple card first, detail on request
+
+Each card shows the verdict and one line with the number that decided it. Everything else (stats, what they likely have, the takeaway, the draw rule, the opponent read, the working) sits under "More detail". Once opened it stays open, remembered in the browser.
+
+## 17. Table mechanics match standard poker clients
+
+See the table in `docs/benchmark.md`. Opponents act one at a time (`ACTION_DELAY_MS`), the grader still prices any amount you choose, and recommendations stay on the preset sizes.

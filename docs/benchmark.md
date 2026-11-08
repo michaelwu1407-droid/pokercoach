@@ -57,3 +57,17 @@ Sources are web search results, many from affiliate or competitor blogs. The ven
 3. **Daily set.** Ten drills a day built from your own mistakes, with a streak counter. Closes gap 3, and reuses the drill queue.
 4. **Installable web app** (manifest and offline cache). Closes gap 4 cheaply.
 5. Keep "decide first". Snowie's live advice is the opposite of how retention works, so it is not a gap worth closing.
+
+## Table mechanics against standard poker clients
+
+Every major client (PokerStars, GGPoker, partypoker) shares one layout: a slider plus preset buttons (Min, ½ pot, ⅔ or ¾ pot, Pot, All-in) and a typed amount, pre-action options, labels for what each player did, a dealer button, and a pause between actions so you can follow them. Source: the betterpoker "online interface" guide and PokerNews on PokerStars bet-slider settings (links in the session reply).
+
+| Mechanic | Standard clients | pokercoach before | pokercoach now |
+|---|---|---|---|
+| Choose any bet size | Slider, presets, typed amount | Three fixed buttons | Presets (Min, ½ pot, ¾ pot, Pot, All-in), slider, typed dollars, arrow keys |
+| See what each player did | Action label on each seat | Only stack changes | Label per seat for the street: "Call $1", "Raise to $7.50", "Fold" |
+| Follow the action | Short pause per action | All bots acted instantly | One action every 0.65s, Space or click to skip ahead |
+| Dealer button | Yes | No | Yes |
+| Showdown result | Winner and hand named | Payout only | "Nico wins $24 with two pair, Kings and Sevens" |
+| Fits one screen | Yes | Page scrolled | Header, table and coach fill the window; the browser test checks it |
+| Pre-actions (fold to any bet) | Yes | No | No. Low value for a learner who should think about each decision |

@@ -50,16 +50,26 @@ button.primary { background: var(--accent); color: var(--accent-ink); border-col
 .muted { color: var(--muted); }
 .micro-label { font-size: 11px; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; color: var(--muted); }
 
-.app { max-width: 1280px; margin: 0 auto; padding-block: 0 32px; padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); }
+html, body, #root { height: 100%; }
+/* One screen: header, then the table and coach fill what is left. Nothing scrolls on desktop. */
+.app {
+  max-width: 1400px; margin: 0 auto; height: 100%; display: flex; flex-direction: column;
+  padding-block: 0 12px; padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px));
+}
 .topbar { display: flex; align-items: center; gap: 12px; padding: 12px 0; flex-wrap: wrap; }
 .brand { font-weight: 800; margin-right: auto; }
 .tab-on { border-color: var(--accent); }
 
-.play { display: grid; grid-template-columns: minmax(0, 1fr) 360px; gap: 16px; }
-@media (max-width: 900px) { .play { grid-template-columns: minmax(0, 1fr); } }
-.play-main { min-width: 0; }
+.play { flex: 1; min-height: 0; display: grid; grid-template-columns: minmax(0, 1fr) 340px; gap: 16px; }
+@media (max-width: 900px) {
+  .app { height: auto; min-height: 100%; }
+  .play { grid-template-columns: minmax(0, 1fr); }
+  .table { flex: none; height: 56vh; min-height: 300px; }
+}
+@media (max-height: 700px) and (min-width: 901px) { .seat .card { width: 28px; height: 38px; font-size: 13px; } }
+.play-main { min-width: 0; min-height: 0; display: flex; flex-direction: column; gap: 6px; }
 
-.table { position: relative; width: 100%; aspect-ratio: 16 / 10; min-height: 340px; }
+.table { position: relative; width: 100%; flex: 1; min-height: 240px; cursor: default; }
 .felt {
   position: absolute; inset: 14% 10%; background: var(--felt); border: 10px solid var(--felt-edge);
   border-radius: 999px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 8px;
@@ -86,11 +96,28 @@ button.primary { background: var(--accent); color: var(--accent-ink); border-col
 .card-red { color: #c0392b; }
 .card-back { background: repeating-linear-gradient(45deg, #2b6d52, #2b6d52 4px, #245c45 4px, #245c45 8px); border-color: #194031; }
 
-.action-bar { display: flex; gap: 8px; flex-wrap: wrap; }
-.action-bar button { flex: 1 1 110px; padding: 14px 10px; font-weight: 700; }
+.controls { display: grid; gap: 6px; }
+.action-bar { display: grid; gap: 8px; }
+.main-actions { display: flex; gap: 8px; flex-wrap: wrap; }
+.sizing { display: grid; gap: 6px; }
+.presets { display: flex; gap: 6px; flex-wrap: wrap; }
+.chip-on { border-color: var(--accent); background: var(--accent); color: var(--accent-ink); }
+.amount-row { display: flex; gap: 10px; align-items: center; }
+.amount-row input[type="range"] { flex: 1; min-width: 0; accent-color: var(--accent); }
+.amount-box { display: flex; align-items: center; gap: 2px; border: 1px solid var(--border); border-radius: 10px; padding: 4px 8px; background: var(--card); }
+.amount-box input { width: 70px; border: 0; background: transparent; color: var(--ink); font: inherit; font-weight: 700; }
+.waiting { margin: 0; text-align: center; }
+.link { border: 0; background: none; color: var(--accent); text-decoration: underline; padding: 0 4px; }
+.dealer-button { position: absolute; top: -8px; right: -8px; width: 20px; height: 20px; border-radius: 50%; background: #fff; color: #111; font-size: 11px; font-weight: 800; display: grid; place-items: center; border: 1px solid #999; }
+.seat-action { font-size: 12px; font-weight: 700; margin-top: 2px; padding: 1px 6px; border-radius: 6px; background: var(--bg); }
+.action-fold { color: var(--muted); }
+.action-raise, .action-bet, .action-all-in { color: var(--bad); }
+.seat-winner { border-color: var(--good); box-shadow: 0 0 0 2px var(--good); }
+.result { color: #fff; font-weight: 700; background: rgba(0, 0, 0, 0.35); border-radius: 8px; padding: 4px 10px; text-align: center; max-width: 90%; }
+.main-actions button { flex: 1 1 110px; padding: 12px 10px; font-weight: 700; }
 .banner { background: var(--card); border: 1px solid var(--border); border-radius: var(--radius); padding: 8px 12px; margin: 0 0 8px; }
 
-.coach { background: var(--card); border: 1px solid var(--border); border-radius: var(--radius); padding: 16px; align-self: start; display: grid; gap: 12px; min-width: 0; }
+.coach { background: var(--card); border: 1px solid var(--border); border-radius: var(--radius); padding: 14px; align-self: start; display: grid; gap: 10px; min-width: 0; max-height: 100%; overflow-y: auto; }
 .wide { width: 100%; padding: 12px; font-weight: 700; }
 .small { font-size: 13px; }
 .feedback { display: grid; gap: 12px; overflow-wrap: anywhere; }
@@ -100,7 +127,7 @@ button.primary { background: var(--accent); color: var(--accent-ink); border-col
 .tone-mistake .feedback-headline, .tone-blunder .feedback-headline, .review-list .tone-mistake, .review-list .tone-blunder { color: var(--bad); }
 .stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(80px, 1fr)); gap: 8px; }
 .stat { background: var(--bg); border-radius: 10px; padding: 8px; text-align: center; }
-.stat-value { font-size: 20px; font-weight: 800; }
+.stat-value { font-size: clamp(15px, 1.4vw, 20px); font-weight: 800; white-space: nowrap; }
 .stat-label { font-size: 12px; color: var(--muted); }
 .mix-bar { display: flex; height: 12px; border-radius: 999px; overflow: hidden; background: var(--border); margin: 6px 0; }
 .mix-legend { list-style: none; margin: 0; padding: 0; display: flex; flex-wrap: wrap; gap: 4px 12px; font-size: 12px; color: var(--muted); }
@@ -134,7 +161,7 @@ button.primary { background: var(--accent); color: var(--accent-ink); border-col
 .context { font-size: 13px; color: var(--muted); }
 kbd { font: inherit; font-size: 11px; opacity: 0.6; border: 1px solid currentColor; border-radius: 4px; padding: 0 4px; margin-left: 4px; }
 @media (hover: none) { kbd { display: none; } }
-.you-have { margin: 28px 0 8px; text-align: center; color: var(--muted); }
+.you-have { margin: 0; text-align: center; color: var(--muted); }
 .you-have b { color: var(--ink); }
 .overlay { position: fixed; inset: 0; background: rgba(0, 0, 0, 0.45); display: flex; align-items: center; justify-content: center; padding: 16px; z-index: 10; }
 .sheet { background: var(--card); color: var(--ink); border-radius: var(--radius); padding: 20px; width: calc(100vw - 2rem); max-width: 560px; max-height: 90vh; overflow-y: auto; }
@@ -148,3 +175,8 @@ kbd { font: inherit; font-size: 11px; opacity: 0.6; border: 1px solid currentCol
 .sheet-start { margin-top: 16px; }
 .card-ten { letter-spacing: -1.5px; }
 .draw-line { margin: 0; font-size: 14px; padding: 8px 12px; background: var(--bg); border-radius: 8px; }
+.summary { margin: 0; font-size: 15px; }
+.more > summary { cursor: pointer; color: var(--accent); font-weight: 600; }
+.more-body { display: grid; gap: 10px; margin-top: 10px; }
+.banner { padding: 6px 12px; margin: 0; font-size: 14px; }
+.topbar { flex: none; }
