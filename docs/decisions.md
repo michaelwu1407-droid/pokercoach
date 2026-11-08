@@ -53,3 +53,11 @@ A loose beginner made a costly mistake in 58% of simulated hands. Pausing on eac
 ## 12. Beginner aids
 
 The guide opens on the first visit with hand rankings and every word the coach uses. The table always says what you hold in plain words. Keyboard shortcuts keep folds fast.
+
+## 13. Heads-up flop and turn decisions look one betting round ahead
+
+`src/grading/lookahead.ts` plays out the next betting round over 10 sampled next cards. The opponent follows their strategy. You pick your best option against the range that reaches each point, since you cannot see their cards. Each path keeps its own range, so a range that called your bet is stronger on the next card. After that round the hand is checked down. River decisions stay exact. The 250 heaviest combos (covering 99.5% of the range) are played out and the tail keeps its checked-down value.
+
+What it changed, on a regular-style hero over 400 simulated hands: heads-up blunders fell from 23 to 10 and mistakes from 25 to 14, because a check or call now earns the value it leaves for later. A turn check with the nuts against a calling station is worth 2.34bb in a 2bb pot instead of exactly 2bb. Calls can now be right below the break-even equity (implied odds) and wrong above it (they keep betting), and the card says so. Grading takes 296ms at the 95th percentile and 428ms at most.
+
+Multiway pots still look one action ahead.

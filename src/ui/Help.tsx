@@ -16,6 +16,7 @@ const TERMS = [
   ["bb", "Big blind. Every amount is in big blinds, so 2.5bb means two and a half big blinds."],
   ["Equity", "Your chance of winning the pot if all the cards were dealt out now."],
   ["Needed to call", "The equity at which a call breaks even: your call divided by the pot after you call."],
+  ["Implied odds", "Chips you expect to win on later cards when you hit. They can make a call right even when your equity is below what is needed."],
   ["Range", "Every hand an opponent could have, given what they have done this hand."],
   ["Folds to a bet", "How often a bet makes them give up. Wins the pot without a showdown."],
   ["Cost", "How much your choice gives up on average compared with the best option. A loss in one hand is luck. Cost is skill."],

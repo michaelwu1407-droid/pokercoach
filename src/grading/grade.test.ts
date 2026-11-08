@@ -112,3 +112,21 @@ describe("size options", () => {
     }
   });
 });
+
+describe("one-round lookahead", () => {
+  it("credits a turn check with the river value bet it leaves room for", () => {
+    // Heads-up. Seat 0 (button) holds AhKh. The turn makes a royal flush, so every river keeps the nuts.
+    const toTurn: PlayerAction[] = [
+      { type: "call", seat: 0 }, { type: "check", seat: 1 },
+      { type: "check", seat: 1 }, { type: "check", seat: 0 },
+      { type: "check", seat: 1 },
+    ];
+    const events = hand([10000, 10000], 0, deck("9sAh9dKh QhJhTh2c"), toTurn);
+    const g = at(events, { type: "check", seat: 0 }, { 1: STYLES.station, 0: STYLES.tag });
+    if (!g.graded || g.basis.kind !== "ev") throw new Error("expected an EV grade");
+    const check = g.basis.values.find((v) => v.action.type === "check")!;
+    // Checked down, a check is worth exactly the 2bb pot. Looking one round ahead, the river bet adds to it.
+    expect(check.evBB).toBeGreaterThan(2.2);
+    expect(g.basis.approximations.join(" ")).toMatch(/next betting round is played out/);
+  }, 60_000);
+});

@@ -56,7 +56,13 @@ function why(g: Graded, kind: Kind): string {
   const rarely = fold !== null && fold < 0.05;
   const whenCalled = called === null ? "" : `, and against the hands that continue you have ${pct(called)}`;
   if (need !== null) {
+    if (kind === "fold" && pct(equity) === pct(need))
+      return `You had ${pct(equity)}, right at the ${pct(need)} needed, and they keep betting on later cards, so calling loses in the end. Fold.`;
+    if (kind === "fold" && equity >= need)
+      return `You had ${pct(equity)}, above the ${pct(need)} needed, but they keep betting on later cards, so calling now costs more than it wins. Fold.`;
     if (kind === "fold") return `You needed ${pct(need)} to call but had ${pct(equity)} against ${against}, so folding saves chips.`;
+    if (kind === "passive" && equity < need && pct(equity) !== pct(need))
+      return `You had ${pct(equity)}, below the ${pct(need)} needed, but calling still pays: when the next card helps you, you win more from them later.`;
     if (kind === "passive") return `You needed ${pct(need)} to call and had ${pct(equity)} against ${against}, so calling makes money.`;
     return rarely ? `Raising earns most even though they rarely fold${whenCalled}.` : `Raising earns most: ${folds} to a raise${whenCalled}.`;
   }

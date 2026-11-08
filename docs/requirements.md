@@ -53,7 +53,7 @@ All deterministic code.
 
 ## Risks
 
-- **Grades are exact against these bots, approximate for poker in general.** The lookahead treats later streets as checked down. Each card says so under "How this was worked out".
+- **Grades are exact against these bots, approximate for poker in general.** Heads-up flop and turn decisions look one betting round ahead, then check down. Multiway decisions look one action ahead. Each card says so under "How this was worked out".
 - **Bot quality.** Weak bots teach exploiting weak bots. Styles have named leaks, and the grader exposed one already (decision 4).
 - **Scope.** Six-max cash only until the loop is proven.
 
@@ -69,7 +69,7 @@ All deterministic code.
 | Drills | Done | Browser test fast-forwards 5 minutes and drills come due. |
 | Measurement | Needs four weeks of play | Progress tab shows EV lost per decision by week and the biggest leaks. |
 
-Known approximations, each shown on its card: later streets are treated as checked down, and against several opponents each one answers a bet as if deciding alone.
+Known approximations, each shown on its card: heads-up decisions look one betting round ahead and then check down, and against several opponents each one answers a bet as if deciding alone.
 
 ## Defaults (change any)
 

@@ -23,7 +23,7 @@ Sources are web search results, many from affiliate or competitor blogs. The ven
 | Learn by playing full hands | ~ (trainer spots, PokerArena heads-up) | ✓ | ✗ | ✓ | ~ | ✓ |
 | Feedback after every decision | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
 | Grades by EV cost, not outcome | ✓ | ✓ | ✓ | ? | ? | ✓ |
-| Accuracy of the "right answer" | Solver, exact | Neural net, strong | Solver | ? | ? | Charts preflop, one-step lookahead postflop |
+| Accuracy of the "right answer" | Solver, exact | Neural net, strong | Solver | ? | ? | Charts preflop, one betting round ahead heads-up postflop |
 | Explains why in plain words | ~ | ~ | ~ (AI coach) | ✓ | ✓ | ✓ |
 | Shows what the opponent likely holds | ✓ (ranges) | ~ | ✓ | ? | ? | ✓ (hand-type bar) |
 | Teaches exploiting player types | ✗ (GTO) | ✗ (GTO) | ✗ (GTO) | ? | ✓ (reading opponents) | ✓ (hidden styles, revealed) |
@@ -52,7 +52,7 @@ Sources are web search results, many from affiliate or competitor blogs. The ven
 
 ## Recommended next steps
 
-1. **Two-street lookahead for heads-up postflop** (flop and turn decisions consider one more betting round), checked against river-exact cases. Closes most of gap 1 without a solver.
+1. **Done (decision 13).** Heads-up flop and turn decisions now play out one more betting round.
 2. **Stages.** Start new players on preflop-only hands (fold or play, then the hand runs out), unlock flop play after preflop accuracy holds above a bar, then full hands. Closes gap 2 using what exists.
 3. **Daily set.** Ten drills a day built from your own mistakes, with a streak counter. Closes gap 3, and reuses the drill queue.
 4. **Installable web app** (manifest and offline cache). Closes gap 4 cheaply.
