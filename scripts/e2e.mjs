@@ -44,7 +44,7 @@ try {
   await page.getByTestId("help").waitFor({ state: "hidden" });
   await page.getByTestId("table").waitFor();
   assert.match(await page.getByTestId("you-have").innerText(), /You have: /);
-  const seen = { keyed: 0, sized: 0, skipped: 0, feedback: 0, mix: 0, read: 0, reviews: 0, recaps: 0, hands: 0, decisions: 0, maxButtons: 0 };
+  const seen = { keyed: 0, sized: 0, skipped: 0, feedback: 0, mix: 0, read: 0, reviews: 0, recaps: 0, reopened: 0, hands: 0, decisions: 0, maxButtons: 0 };
   let lastFeedback = "";
 
   // A deliberately loose player: raise when possible, else call. It makes mistakes the coach must catch.
@@ -89,7 +89,16 @@ try {
       seen.decisions++;
       // You decide first: on your turn the coach shows only a one-line recap, never the full card.
       assert.equal(await page.getByTestId("feedback").isVisible(), false, "no feedback card while deciding");
-      if (await page.getByTestId("last-line").isVisible()) seen.recaps++;
+      if (await page.getByTestId("last-line").isVisible()) {
+        seen.recaps++;
+        // The folded card opens on request, and closes again before deciding.
+        if (seen.recaps === 1 && (await page.getByTestId("grading").count()) === 0) {
+          await page.getByTestId("last-line").click();
+          await page.getByTestId("summary").waitFor();
+          seen.reopened++;
+          await page.getByTestId("last-line").click();
+        }
+      }
       seen.maxButtons = Math.max(seen.maxButtons, await page.locator(".main-actions button").count());
       if (seen.sized < 2 && (await page.getByTestId("act-raise").isVisible())) {
         // Raise opens the sizer: a preset, then the arrow keys, change the amount on the confirm button.
@@ -142,6 +151,7 @@ try {
   assert.ok(seen.sized >= 1, "sized a bet with a preset and the arrow keys");
   assert.ok(seen.reviews >= 1, "reviewed a hand's decisions in the list");
   assert.ok(seen.recaps >= 1, "showed the last decision's verdict as one line");
+  assert.ok(seen.reopened >= 1, "reopened the last decision's full card on your turn");
   assert.ok(seen.skipped >= 1, "skipped ahead through the others' actions");
   const fits = await page.evaluate(() => document.documentElement.scrollHeight <= window.innerHeight + 1);
   assert.ok(fits, "the play screen fits the window without scrolling");

@@ -192,3 +192,9 @@ kbd { font: inherit; font-size: 11px; opacity: 0.6; border: 1px solid currentCol
 .review-row.tone-mistake { color: var(--bad); }
 .stat-hints { margin: 0; padding-left: 16px; display: grid; gap: 4px; font-size: 12px; color: var(--muted); }
 .stat-hints b { color: var(--ink); font-weight: 600; }
+.last-more > summary { cursor: pointer; list-style: none; }
+.last-more > summary::-webkit-details-marker { display: none; }
+.last-open { color: var(--accent); font-weight: 600; margin-left: 4px; white-space: nowrap; }
+.last-close, .last-more[open] .last-text { display: none; }
+.last-more[open] .last-close { display: inline; color: var(--accent); font-weight: 600; }
+.last-more[open] > summary { margin-bottom: 8px; }

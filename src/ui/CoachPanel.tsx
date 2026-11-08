@@ -11,7 +11,7 @@ interface Props {
   readonly decisions: readonly Decision[];
   readonly opponents: Opponents;
   readonly bigBlind: number;
-  /** "turn": your next decision is waiting, so only a quiet line shows. "review": the hand is over. */
+  /** "turn": your next decision is waiting, so the last card folds to one line you can open. "review": the hand is over. */
   readonly moment: "watching" | "turn" | "review";
   readonly newTable: boolean;
 }
@@ -34,9 +34,16 @@ export function CoachPanel({ decisions, opponents, bigBlind, moment, newTable }:
   if (moment === "turn") {
     const g = latest.grade;
     const line = g && g.graded ? feedback(g, opponents, bigBlind).headline : "Looking at your last decision…";
+    // Folded by default so nothing distracts from the new decision; one click brings the full card back.
     return (
       <aside className="coach" data-testid="coach">
-        <p className="muted small" data-testid="last-line">Last decision: <b className={g && g.graded ? `tone-${g.verdict}` : ""}>{line}</b></p>
+        <details className="last-more">
+          <summary className="muted small" data-testid="last-line">
+            <span className="last-text">Last decision: <b className={g && g.graded ? `tone-${g.verdict}` : ""}>{line}</b> <span className="last-open">Show why</span></span>
+            <span className="last-close">Hide last decision</span>
+          </summary>
+          {cardFor(latest)}
+        </details>
       </aside>
     );
   }
