@@ -25,16 +25,18 @@ describe("preflop chart grading", () => {
 
   it("rewards opening a chart hand and folding a non-chart hand from UTG", () => {
     const aa = six("2c3cAs4c5c6c 2d3dAh4d5d6d");
-    expect(at(aa, { type: "raise", seat: 3, to: 250 })).toMatchObject({ graded: true, verdict: "good" });
+    expect(at(aa, { type: "raise", seat: 3, to: 250 })).toMatchObject({ graded: true, verdict: "good", basis: { spot: "rfi" } });
     const trash = six("2c3c7s4c5c6c 2d3d2h4d5d6d");
     expect(at(trash, { type: "raise", seat: 3, to: 250 })).toMatchObject({ graded: true, verdict: "mistake" });
     expect(at(trash, { type: "fold", seat: 3 })).toMatchObject({ graded: true, verdict: "good" });
   });
 
-  it("does not grade spots it has no basis for", () => {
-    const events = six("2c3cAs4c5c6c 2d3dAh4d5d6d");
+  it("grades facing a raise against the response chart", () => {
+    // UTG (seat 3) opens with AA. Seat 4 (HJ) holds AdKc, the 4th and 10th cards: a re-raise.
+    const events = six("2c3cAsAdKd6c 2d3dAhKc5d6d");
     const opened = [...events, { type: "raise", seat: 3, to: 250 } as const];
-    expect(at(opened, { type: "fold", seat: 4 })).toMatchObject({ graded: false });
+    const g = at(opened, { type: "call", seat: 4 });
+    expect(g).toMatchObject({ graded: true, verdict: "small", basis: { kind: "chart", spot: "vs-open", bestMove: "raise", opener: "UTG" } });
   });
 });
 
@@ -74,5 +76,21 @@ describe("postflop EV grading", () => {
     const gb = at(b, { type: "call", seat: 0 });
     expect(ga).toEqual(gb);
     expect(apply(reduce(a), { type: "call", seat: 0 }).board).not.toEqual(apply(reduce(b), { type: "call", seat: 0 }).board);
+  }, 30_000);
+});
+
+describe("multiway EV grading", () => {
+  it("prices calls against several opponents and never folds the nuts", () => {
+    // Three players see a river: seats 0 (BTN), 1 (SB), 2 (BB). Seat 0 holds AhKh for a royal flush.
+    const d = deck("9s9cAh8s8c Kh9d QhJhTh2c3d");
+    const six = (actions: PlayerAction[]) => hand([10000, 10000, 10000, 10000, 10000, 10000], 0, d, actions);
+    const pre: PlayerAction[] = [{ type: "fold", seat: 3 }, { type: "fold", seat: 4 }, { type: "fold", seat: 5 }, { type: "call", seat: 0 }, { type: "call", seat: 1 }, { type: "check", seat: 2 }];
+    const streets: PlayerAction[] = [1, 2, 0, 1, 2, 0].map((seat) => ({ type: "check", seat }));
+    const events = six([...pre, ...streets, { type: "bet", seat: 1, to: 200 }, { type: "call", seat: 2 }]);
+    const g = grade({ events, state: reduce(events), action: { type: "fold", seat: 0 }, styles: { 1: STYLES.tag, 2: STYLES.station, 3: STYLES.nit, 4: STYLES.lag, 5: STYLES.tag } });
+    if (!g.graded || g.basis.kind !== "ev") throw new Error("expected an EV grade");
+    expect(g.basis.opponents).toBe(2);
+    expect(g.best.type).not.toBe("fold");
+    expect(g.verdict).toBe("blunder");
   }, 30_000);
 });

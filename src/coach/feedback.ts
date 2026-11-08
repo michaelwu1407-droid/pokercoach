@@ -50,15 +50,17 @@ const kindOf = (a: PlayerAction): Kind => (a.type === "fold" ? "fold" : aggressi
 /** Why one kind of play is right here, in the spot's own numbers. */
 function why(g: Graded, kind: Kind): string {
   if (g.basis.kind !== "ev") return "";
-  const { equity, potOddsNeeded: need, foldToBet: fold, equityWhenCalled: called } = g.basis;
-  const folds = fold === null ? "they rarely fold" : `they fold ${pct(fold)} of the time`;
+  const { equity, potOddsNeeded: need, foldToBet: fold, equityWhenCalled: called, opponents } = g.basis;
+  const against = opponents > 1 ? `the ${opponents} players still in` : "the hands they bet with";
+  const folds = fold === null ? "they rarely fold" : opponents > 1 ? `everyone folds ${pct(fold)} of the time` : `they fold ${pct(fold)} of the time`;
+  const rarely = fold !== null && fold < 0.05;
   const whenCalled = called === null ? "" : `, and against the hands that continue you have ${pct(called)}`;
   if (need !== null) {
-    if (kind === "fold") return `You needed ${pct(need)} to call but had ${pct(equity)} against the hands they bet with, so folding saves chips.`;
-    if (kind === "passive") return `You needed ${pct(need)} to call and had ${pct(equity)}, so calling makes money.`;
-    return `Raising earns most: ${folds} to a raise${whenCalled}.`;
+    if (kind === "fold") return `You needed ${pct(need)} to call but had ${pct(equity)} against ${against}, so folding saves chips.`;
+    if (kind === "passive") return `You needed ${pct(need)} to call and had ${pct(equity)} against ${against}, so calling makes money.`;
+    return rarely ? `Raising earns most even though they rarely fold${whenCalled}.` : `Raising earns most: ${folds} to a raise${whenCalled}.`;
   }
-  if (kind === "aggressive") return `Betting works: ${folds}${whenCalled}.`;
+  if (kind === "aggressive") return rarely ? `Betting earns most even though they rarely fold${whenCalled}, so worse hands pay you.` : `Betting works: ${folds}${whenCalled}.`;
   return called !== null && fold !== null
     ? `Checking is better. A bet folds out ${pct(fold)} of their hands, and the ones that continue leave you only ${pct(called)}.`
     : `Checking is better here. Your equity is ${pct(equity)}.`;
@@ -75,16 +77,25 @@ function evKeyPoint(g: Graded, bigBlind: number): string {
   return why(g, best);
 }
 
+const MOVE_WORD = { raise: "a raise", call: "a call", fold: "a fold" } as const;
+
 function chartKeyPoint(g: Graded): string {
   if (g.basis.kind !== "chart") return "";
-  const { handClass, position, inChart, chartShare } = g.basis;
-  const share = `about ${pct(chartShare)} of hands`;
-  if (inChart) return g.verdict === "good"
-    ? `${handClass} is a standard open from ${position}, where you open ${share}.`
-    : `${handClass} is inside the ${position} range of ${share}. Raise it. Limping or folding gives up value.`;
-  return g.verdict === "good"
-    ? `${handClass} is too weak to open from ${position}. From there you open only ${share}.`
-    : `${handClass} is outside the ${position} range of ${share}. Fold it.`;
+  const { spot, handClass, position, opener, bestMove, raiseShare, callShare, continueShare } = g.basis;
+  const verdict = g.verdict === "good" ? `${handClass} is ${MOVE_WORD[bestMove]} here` : `${handClass} should be ${MOVE_WORD[bestMove]} here`;
+  const fold = position === "BB" && spot === "vs-limp" ? "check" : "fold";
+  switch (spot) {
+    case "rfi":
+      return `When it folds to you in ${position}, open about ${pct(raiseShare)} of hands and fold the rest. ${verdict}.`;
+    case "vs-limp":
+      return `Against limpers, raise about ${pct(raiseShare)} of hands to punish them and ${fold} the rest. Limping behind gives up the initiative. ${verdict}.`;
+    case "vs-open":
+      return `Facing a raise from ${opener ?? "an earlier seat"}, re-raise about ${pct(raiseShare)} of hands${callShare > 0 ? `, call about ${pct(callShare)}` : ""}, and fold the rest. ${verdict}.`;
+    case "vs-3bet":
+      return `When your raise gets re-raised, re-raise again with about ${pct(raiseShare)} of hands, call about ${pct(callShare)}, and fold the rest. ${verdict}.`;
+    case "vs-4bet":
+      return `After a raise and a re-raise, only the top ${pct(continueShare)} of hands continue. ${verdict}.`;
+  }
 }
 
 export function feedback(g: Grade, concepts: readonly Concept[], opponents: Opponents, bigBlind: number): Feedback {
@@ -97,7 +108,11 @@ export function feedback(g: Grade, concepts: readonly Concept[], opponents: Oppo
   if (g.basis.kind === "chart") {
     return {
       tone: g.verdict, context, headline: headline(g, bigBlind), mix: null, read: null, skill,
-      stats: [{ label: "Your hand", value: g.basis.handClass }, { label: "Seat", value: g.basis.position }, { label: "Seat opens", value: pct(g.basis.chartShare) }],
+      stats: [
+        { label: "Your hand", value: g.basis.handClass },
+        { label: "Seat", value: g.basis.position },
+        { label: "Hands that play on", value: pct(g.basis.continueShare) },
+      ],
       keyPoint: chartKeyPoint(g), details: [`Chart: ${g.basis.source}`], caveats: [],
     };
   }

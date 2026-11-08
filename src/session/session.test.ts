@@ -48,9 +48,10 @@ describe("opponents", () => {
 describe("session", () => {
   const { results, decisions, learner } = playSession(150);
 
-  it("grades every hero decision or says why not", () => {
+  it("grades every hero decision", () => {
     expect(results).toHaveLength(decisions);
-    for (const r of results) if (!r.grade.graded) expect(r.grade.reason.length).toBeGreaterThan(0);
+    expect(results.filter((r) => !r.grade.graded)).toEqual([]);
+    expect(results.some((r) => r.grade.graded && r.grade.basis.kind === "ev" && r.grade.basis.opponents > 1)).toBe(true);
   });
 
   it("gives every graded decision a short, specific, number-grounded lesson", () => {
@@ -82,11 +83,13 @@ describe("coach", () => {
   const good = { graded: true, verdict: "good", evLossBB: 0 } as unknown as Grade;
   const blunder = { graded: true, verdict: "blunder", evLossBB: 5 } as unknown as Grade;
 
-  it("shows feedback after every decision and pauses only on costly mistakes", () => {
+  it("shows feedback after every decision and pauses at most once per hand on costly mistakes", () => {
     const a = coach(initialCoach, { type: "heroActed", grade: good, conceptIds: [] });
     expect(a).toMatchObject({ kind: "feedback", paused: false });
     const b = coach(a, { type: "heroActed", grade: blunder, conceptIds: [] });
     expect(b).toMatchObject({ kind: "feedback", paused: true });
-    expect(coach(b, { type: "continue" })).toMatchObject({ kind: "feedback", paused: false });
+    const c = coach(coach(b, { type: "continue" }), { type: "heroActed", grade: blunder, conceptIds: [] });
+    expect(c).toMatchObject({ kind: "feedback", paused: false });
+    expect(coach(c, { type: "newHand" })).toEqual(initialCoach);
   });
 });

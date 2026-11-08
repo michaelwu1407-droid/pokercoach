@@ -5,11 +5,13 @@ import { apply, legalActions, potSize } from "../engine/reduce";
 import type { HandEvent, HandState, PlayerAction, SeatIndex } from "../engine/types";
 import { evaluate } from "../evaluator/handRank";
 import { equityVsCombo } from "../evaluator/equity";
-import { positionOf, RFI } from "../evaluator/preflopCharts";
+import { chartMove, type ChartMove, readPreflop, RESPONSE_CHART_SOURCE } from "../evaluator/responseCharts";
 import { classOf, type Combo, rangeCombos, type WeightedCombo } from "../evaluator/ranges";
 import { rangeMix } from "./rangeMix";
 import { sizeOptions } from "./sizes";
-import { type ActionValue, type Grade, verdictFor } from "./types";
+import { candidates, isDeepShove } from "./options";
+import { gradeMultiway } from "./multiway";
+import { type ActionValue, type Grade, verdictForChoice } from "./types";
 import { effectiveSize, villainRange } from "./villainRange";
 
 export interface DecisionContext {
@@ -39,41 +41,32 @@ function comboEquity(hero: Combo, villain: Combo, board: readonly Card[], seed: 
   return sum / FLOP_RUNOUTS;
 }
 
-/** All-in for more than twice the pot after calling. */
-function isDeepShove(st: HandState, a: PlayerAction): boolean {
-  if (a.type !== "bet" && a.type !== "raise") return false;
-  const legal = legalActions(st)!;
-  return a.to === legal.raise?.max && a.to - st.seats[a.seat]!.street > 2 * (potSize(st) + legal.callAmount);
-}
+const share = (set: ReadonlySet<string>) => rangeCombos(set).length / 1326;
 
-const isRaiseFirstIn = (st: HandState) => st.street === "preflop" && st.history.every((a) => a.type === "fold");
-
+/** Every preflop decision is graded against the chart for its situation. */
 function gradeChart(ctx: DecisionContext): Grade {
   const { state: st, action } = ctx;
-  const pos = positionOf(st.config, action.seat);
-  const chart = RFI[pos];
-  if (!chart) return { graded: false, street: st.street, seat: action.seat, action, reason: `No open-raise chart for ${pos}.` };
-  const handClass = classOf(st.seats[action.seat]!.hole);
-  const inChart = chart.raise.has(handClass);
+  const seat = action.seat;
+  const read = readPreflop(st, seat);
+  const handClass = classOf(st.seats[seat]!.hole);
   const legal = legalActions(st)!;
-  const best: PlayerAction = inChart && legal.raise ? { type: legal.raise.kind, seat: action.seat, to: aggressiveTo(st) } : { type: "fold", seat: action.seat };
-  const right = inChart ? action.type === "raise" : action.type === "fold";
+  let bestMove = chartMove(read.chart, handClass);
+  if (bestMove === "raise" && !legal.raise) bestMove = "call";
+  if (bestMove === "call" && legal.canCheck && read.spot !== "vs-limp") bestMove = "fold";
+  const best: PlayerAction = bestMove === "raise" ? { type: legal.raise!.kind, seat, to: aggressiveTo(st) }
+    : bestMove === "call" ? (legal.canCheck ? { type: "check", seat } : { type: "call", seat })
+    : legal.canCheck ? { type: "check", seat } : { type: "fold", seat };
+  const chose: ChartMove = action.type === "raise" || action.type === "bet" ? "raise" : action.type === "call" ? "call" : "fold";
+  // Raising a calling hand or calling a raising hand is a smaller error than playing a folding hand.
+  const verdict = chose === bestMove ? "good" : chose !== "fold" && bestMove !== "fold" ? "small" : "mistake";
   return {
-    graded: true, street: st.street, seat: action.seat, action, best, evLossBB: null,
-    verdict: right ? "good" : "mistake",
-    basis: { kind: "chart", chartId: chart.id, source: chart.source, position: pos, inChart, handClass, chartShare: rangeCombos(chart.raise).length / 1326 },
+    graded: true, street: st.street, seat, action, best, evLossBB: null, verdict,
+    basis: {
+      kind: "chart", spot: read.spot, source: RESPONSE_CHART_SOURCE, position: read.position, opener: read.opener,
+      handClass, bestMove, raiseShare: share(read.chart.raise), callShare: share(read.chart.call),
+      continueShare: share(new Set([...read.chart.raise, ...read.chart.call])),
+    },
   };
-}
-
-function candidates(st: HandState, action: PlayerAction): PlayerAction[] {
-  const legal = legalActions(st)!;
-  const seat = legal.seat;
-  const out: PlayerAction[] = [action];
-  if (!legal.canCheck) out.push({ type: "fold", seat });
-  out.push(legal.canCheck ? { type: "check", seat } : { type: "call", seat });
-  if (legal.raise) for (const s of sizeOptions(st)) out.push({ type: legal.raise.kind, seat, to: s.to });
-  const key = (a: PlayerAction) => `${a.type}:${"to" in a ? a.to : ""}`;
-  return out.filter((a, i) => out.findIndex((b) => key(b) === key(a)) === i);
 }
 
 function valueOf(st: HandState, action: PlayerAction, hero: SeatIndex, villain: SeatIndex, range: readonly WeightedCombo[],
@@ -110,7 +103,9 @@ function gradeEv(ctx: DecisionContext): Grade {
   const { state: st, action, events, styles } = ctx;
   const hero = action.seat;
   const live = st.seats.map((s, i) => i).filter((i) => !st.seats[i]!.folded);
-  if (live.length !== 2) return { graded: false, street: st.street, seat: hero, action, reason: "Multiway pots are not graded yet." };
+  const missing = live.find((i) => i !== hero && !styles[i]);
+  if (missing !== undefined) return { graded: false, street: st.street, seat: hero, action, reason: "Opponent strategy unknown." };
+  if (live.length > 2) return gradeMultiway(events, st, action, styles, live.filter((i) => i !== hero));
   const villain = live.find((i) => i !== hero)!;
   const style = styles[villain];
   if (!style) return { graded: false, street: st.street, seat: hero, action, reason: "Opponent strategy unknown." };
@@ -150,8 +145,8 @@ function gradeEv(ctx: DecisionContext): Grade {
     }
   }
   return {
-    graded: true, street: st.street, seat: hero, action, best: best.action, evLossBB, verdict: verdictFor(evLossBB),
-    basis: { kind: "ev", villain, mix: rangeMix(range, st.board), foldToBet, equityWhenCalled, values, equity, potOddsNeeded, rangeSize: effectiveSize(range), approximations },
+    graded: true, street: st.street, seat: hero, action, best: best.action, evLossBB, verdict: verdictForChoice(action, best.action, evLossBB),
+    basis: { kind: "ev", villain, opponents: 1, mix: rangeMix(range, st.board), foldToBet, equityWhenCalled, values, equity, potOddsNeeded, rangeSize: effectiveSize(range), approximations },
   };
 }
 
@@ -160,9 +155,7 @@ export function grade(ctx: DecisionContext): Grade {
   const { state: st, action } = ctx;
   if (st.phase !== "betting" || legalActions(st)?.seat !== action.seat) throw new Error("grade needs the state the action was taken in");
   if (st.street === "preflop") {
-    return isRaiseFirstIn(st)
-      ? gradeChart(ctx)
-      : { graded: false, street: st.street, seat: action.seat, action, reason: "Only raise-first-in preflop spots are graded so far." };
+    return gradeChart(ctx);
   }
   return gradeEv(ctx);
 }

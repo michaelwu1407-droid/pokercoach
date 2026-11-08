@@ -1,5 +1,6 @@
 import type { PlayerAction, SeatIndex, Street } from "../engine/types";
 import type { Position } from "../evaluator/preflopCharts";
+import type { ChartMove, PreflopSpot } from "../evaluator/responseCharts";
 import type { MixShare } from "./rangeMix";
 
 export type Verdict = "good" | "small" | "mistake" | "blunder";
@@ -13,17 +14,25 @@ export interface ActionValue {
 export type Basis =
   | {
       readonly kind: "chart";
-      readonly chartId: string;
+      readonly spot: PreflopSpot;
       readonly source: string;
       readonly position: Position;
-      readonly inChart: boolean;
+      /** Seat of the first raiser, when there is one. */
+      readonly opener: Position | null;
       readonly handClass: string;
-      /** Share of all starting hands the chart opens from this seat. */
-      readonly chartShare: number;
+      readonly bestMove: ChartMove;
+      /** Share of all starting hands the chart raises, and calls, in this spot. */
+      readonly raiseShare: number;
+      readonly callShare: number;
+      /** raiseShare + callShare. */
+      readonly continueShare: number;
     }
   | {
       readonly kind: "ev";
+      /** The opponent the card focuses on: the last bettor, or the next to act. */
       readonly villain: SeatIndex;
+      /** How many opponents are still in the hand. */
+      readonly opponents: number;
       /** What the opponent likely holds, grouped by hand type. Shares sum to 1. */
       readonly mix: readonly MixShare[];
       /** Share of their range that folds to the smallest offered bet or raise. Null when you cannot raise. */
@@ -53,6 +62,14 @@ export type Grade =
       readonly basis: Basis;
     }
   | { readonly graded: false; readonly street: Street; readonly seat: SeatIndex; readonly action: PlayerAction; readonly reason: string };
+
+const aggressive = (a: PlayerAction) => a.type === "bet" || a.type === "raise";
+
+/** Right idea with the wrong size is "small" unless it costs a lot. */
+export function verdictForChoice(chosen: PlayerAction, best: PlayerAction, evLossBB: number): Verdict {
+  const v = verdictFor(evLossBB);
+  return aggressive(chosen) && aggressive(best) && evLossBB < 3 && v === "mistake" ? "small" : v;
+}
 
 export function verdictFor(evLossBB: number): Verdict {
   if (evLossBB < 0.25) return "good";

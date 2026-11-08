@@ -27,7 +27,7 @@ try {
   await page.goto(`http://localhost:${PORT}/`);
   await page.getByTestId("table").waitFor();
   assert.ok(await page.getByTestId("new-table").isVisible(), "first hand announces a new table");
-  const seen = { feedback: 0, mix: 0, read: 0, pauses: 0, hands: 0, decisions: 0, maxButtons: 0 };
+  const seen = { keyed: 0, feedback: 0, mix: 0, read: 0, pauses: 0, hands: 0, decisions: 0, maxButtons: 0 };
   let lastFeedback = "";
 
   // A deliberately loose player: raise when possible, else call. It makes mistakes the coach must catch.
@@ -52,13 +52,22 @@ try {
     if (await page.getByTestId("next-hand").isVisible()) {
       seen.hands++;
       assert.match(await page.getByTestId("review").innerText(), /Your decisions are what count/);
-      await page.getByTestId("next-hand").click();
+      if (seen.hands % 2 === 0) await page.keyboard.press("Space");
+      else await page.getByTestId("next-hand").click();
+      await page.getByTestId("next-hand").waitFor({ state: "hidden" });
       continue;
     }
     if (await page.getByTestId("action-bar").isVisible()) {
       seen.decisions++;
       seen.maxButtons = Math.max(seen.maxButtons, await page.getByTestId("action-bar").locator("button").count());
       if (seen.decisions === 1) await page.screenshot({ path: `${OUT}/decision.png` });
+      if (seen.decisions % 3 === 0) {
+        const events = await page.evaluate(() => document.querySelector("[data-testid=table]")?.textContent ?? "");
+        await page.keyboard.press("c");
+        await page.waitForFunction((before) => document.querySelector("[data-testid=table]")?.textContent !== before, events);
+        seen.keyed++;
+        continue;
+      }
       for (const id of ["act-raise", "act-call", "act-check"]) {
         if (await page.getByTestId(id).isVisible()) {
           await page.getByTestId(id).click();
@@ -73,6 +82,7 @@ try {
   assert.ok(seen.mix >= 1, "showed what the opponent likely has");
   assert.ok(seen.read >= 1, "revealed an opponent's style");
   assert.ok(seen.maxButtons <= 5, "at most five action buttons");
+  assert.ok(seen.keyed >= 3, "keyboard shortcuts drove some decisions");
 
   // Mistakes return as practice a few minutes later, not immediately.
   await page.clock.fastForward("05:00");
