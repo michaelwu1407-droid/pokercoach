@@ -5,3 +5,4 @@ dist/
 books/
 *.pdf
 *.epub
+e2e-output/

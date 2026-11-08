@@ -12,7 +12,7 @@ export interface CoachMessage {
 }
 
 const pct = (x: number) => `${Math.round(x * 100)}%`;
-const bb = (x: number) => `${x >= 0 ? "+" : ""}${x.toFixed(1)}bb`;
+const bb = (x: number) => `${x >= 0 ? "+" : "−"}${Math.abs(x).toFixed(1)}bb`;
 const chips = (bigBlind: number, to: number) => `${(to / bigBlind).toFixed(1)}bb`;
 
 export function describeAction(a: PlayerAction, bigBlind: number): string {
@@ -43,7 +43,7 @@ export function explain(g: Grade, concepts: readonly Concept[], bigBlind: number
     const { equity, potOddsNeeded, values, rangeSize } = g.basis;
     lines.push(`Their line narrows them to roughly ${rangeSize} likely hands. Against those, your equity is ${pct(equity)}.`);
     if (potOddsNeeded !== null) lines.push(`Calling needs ${pct(potOddsNeeded)} to break even.`);
-    lines.push(`Value of each option: ${values.map((v) => `${describeAction(v.action, bigBlind)} ${bb(v.evBB)}`).join(", ")}.`);
+    lines.push(`Value of each option: ${values.map((v) => `${describeAction(v.action, bigBlind)} → ${bb(v.evBB)}`).join(", ")}.`);
     if (g.evLossBB !== null && g.evLossBB > 0.05) lines.push(`Your choice cost about ${g.evLossBB.toFixed(1)}bb.`);
     caveats.push(...g.basis.approximations);
   }
