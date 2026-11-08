@@ -22,14 +22,18 @@ Grading never reads the outcome or undealt cards. A test proves it by reordering
 
 The first grading run showed a regular-style hero losing 12bb per decision. The cause was a bot that called 100bb shoves with second pair, which made "shove" look best everywhere. Bots now need a stronger hand as the bet grows relative to the pot. The same run now shows 3.5bb per decision. The diagnostic is `scripts/grade-mix.ts`.
 
-## 5. The LLM never writes a number the learner sees
+## 5. No LLM
 
-Explanations are templated from the grade. `ungroundedNumbers` rejects any number the grader did not produce, and a test runs it on every message in a simulated session. The LLM is used only offline, to propose concepts from books. A proposal survives only if its quote is in the source word for word and it names situation tests from a fixed table. The owner then approves each one.
+Every number comes from code, and every lesson is a template filled with grader numbers. `ungroundedNumbers` rejects any number the grader did not produce, and a test runs it on every feedback card in a simulated session. An earlier version used an LLM to pull concepts from books. It was removed: it added a key, a cost, and a failure mode, and the teaching does not need it.
 
-## 6. Book concepts teach but never grade
+## 6. Opponents are random and hidden
 
-A book claim like "open wider on the button" is shown with its quote when it applies. It never takes credit for a grade, because the grader does not measure it. Built-in concepts are the ones whose claims the grader computes.
+Each table seats five random styles, repeats allowed, and each player gets their own thresholds within 15% of their style. The table changes every 25 hands. Styles are hidden at the table and revealed in feedback after you act against them, so reads are learned from evidence.
 
-## 7. Interruptions
+## 7. Feedback after every decision, pauses only for costly ones
 
-Play pauses before a decision at most once per hand, and only for a concept still being learned. After a decision, the coach interrupts only on a loss of 2bb or more, or a chart mistake. Everything else goes to the post-hand review. This follows the guidance-hypothesis finding that constant feedback harms learning.
+You always commit first. Then one card shows the verdict, at most three numbers, what they likely had, one takeaway, and who they are. Play pauses only on a loss of 2bb or more, or a chart mistake. The takeaway explains the play you made when it was good, and the better play when it was not, including "right idea, wrong size".
+
+## 8. Recommendations are always buttons, and deep shoves are never recommended
+
+The grader prices exactly the sizes the action bar offers (`src/grading/sizes.ts`). An all-in for more than twice the pot is priced but never recommended, because the one-step lookahead undervalues bets that keep later streets to play. Before this rule, deep shoves kept "winning" for that reason alone.

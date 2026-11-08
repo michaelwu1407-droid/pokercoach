@@ -1,8 +1,4 @@
 node_modules/
 dist/
 .env*
-# Textbooks are the user's own copies. Never commit them.
-books/
-*.pdf
-*.epub
 e2e-output/

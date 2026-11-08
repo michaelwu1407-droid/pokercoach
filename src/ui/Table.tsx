@@ -2,7 +2,7 @@ import { type Card, formatCard, rankOf, suitOf } from "../cards/card";
 import { potSize } from "../engine/reduce";
 import type { HandState } from "../engine/types";
 import { positionOf } from "../evaluator/preflopCharts";
-import { HERO, LINEUP } from "../session/session";
+import { HERO } from "../session/session";
 
 const SUIT_GLYPH = ["♣", "♦", "♥", "♠"] as const;
 const bbOf = (st: HandState, chips: number) => `${+(chips / st.config.bigBlind).toFixed(1)}bb`;
@@ -18,7 +18,7 @@ export function CardView({ card, hidden = false }: { card?: Card; hidden?: boole
   );
 }
 
-export function Table({ st, revealAll }: { st: HandState; revealAll: boolean }) {
+export function Table({ st }: { st: HandState }) {
   const showdown = st.phase === "complete" && st.showdown;
   const n = st.seats.length;
   return (
@@ -33,12 +33,12 @@ export function Table({ st, revealAll }: { st: HandState; revealAll: boolean }) 
         const angle = ((i - HERO) / n) * 2 * Math.PI;
         const style = { left: `${50 - 42 * Math.sin(angle)}%`, top: `${50 + 40 * Math.cos(angle)}%` };
         const toAct = st.phase === "betting" && st.toAct === i;
-        const show = i === HERO || revealAll || (showdown && !s.folded);
+        const show = i === HERO || (showdown && !s.folded);
         const won = st.phase === "complete" ? st.payouts.find((p) => p.seat === i)?.amount ?? 0 : 0;
         return (
           <div key={i} className={`seat${s.folded ? " seat-folded" : ""}${toAct ? " seat-active" : ""}`} style={style} data-testid={`seat-${i}`}>
             <div className="seat-name">
-              {i === HERO ? "You" : LINEUP[i]!.name} <span className="seat-pos">{positionOf(st.config, i)}</span>
+              {s.id} <span className="seat-pos">{positionOf(st.config, i)}</span>
             </div>
             <div className="seat-cards">
               <CardView card={s.hole[0]} hidden={!show} />
@@ -46,7 +46,7 @@ export function Table({ st, revealAll }: { st: HandState; revealAll: boolean }) 
             </div>
             <div className="seat-stack">{bbOf(st, s.stack)}</div>
             {s.street > 0 && <div className="seat-bet">{bbOf(st, s.street)}</div>}
-            {won > 0 && <div className="seat-won">+{bbOf(st, won)}</div>}
+            {won > 0 && <div className="seat-won">Wins {bbOf(st, won)}</div>}
           </div>
         );
       })}

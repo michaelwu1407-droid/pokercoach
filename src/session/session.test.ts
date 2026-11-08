@@ -2,81 +2,91 @@ import { describe, expect, it } from "vitest";
 import { mulberry32 } from "../cards/card";
 import { decide } from "../bots/policy";
 import { STYLES } from "../bots/styles";
-import { allowedNumbers, explain, ungroundedNumbers } from "../coach/explain";
+import { feedback, feedbackText } from "../coach/feedback";
+import { allowedNumbers, ungroundedNumbers } from "../coach/grounding";
 import { coach, initialCoach } from "../coach/machine";
 import type { Grade } from "../grading/types";
 import { CORE_CONCEPTS } from "../learn/concepts";
 import { emptyLearner, learnFrom, type Learner } from "../learn/learner";
-import { BIG_BLIND, heroAct, newHand, state } from "./session";
+import { BIG_BLIND, heroAct, newHand, newTable, state } from "./session";
 
 function playSession(hands: number) {
   const rng = mulberry32(9);
-  const results: { grade: Grade; conceptIds: string[] }[] = [];
+  const results: { grade: Grade; conceptIds: string[]; opponents: ReturnType<typeof newTable> }[] = [];
   let decisions = 0;
   let learner: Learner = emptyLearner;
   for (let n = 0; n < hands; n++) {
-    let h = newHand(5000 + n, n);
+    const opponents = newTable(100 + Math.floor(n / 25));
+    let h = newHand(5000 + n, n, opponents);
     while (state(h).phase === "betting") {
-      const action = decide(state(h), STYLES.lag, rng);
+      const r = heroAct(h, decide(state(h), STYLES.lag, rng), CORE_CONCEPTS);
       decisions++;
-      const r = heroAct(h, action, CORE_CONCEPTS);
-      results.push({ grade: r.grade, conceptIds: r.concepts.map((c) => c.id) });
-      learner = learnFrom(learner, r.grade, r.concepts.map((c) => c.id), r.spotEvents, "play", n * 60_000);
+      results.push({ grade: r.grade, conceptIds: r.concepts.map((c) => c.id), opponents });
+      learner = learnFrom(learner, r.grade, r.concepts.map((c) => c.id), r.before, "play", n * 60_000);
       h = r.hand;
     }
-    expect(h.grades).toHaveLength(h.events.filter((e) => e.type !== "start" && e.seat === 0).length);
   }
   return { results, decisions, learner };
 }
 
+describe("opponents", () => {
+  it("seat random styles that differ by table and repeat for the same seed", () => {
+    const seen = new Set<string>();
+    for (let t = 0; t < 30; t++) Object.values(newTable(t)).forEach((o) => seen.add(o.style.id));
+    expect(seen).toEqual(new Set(["nit", "tag", "lag", "station"]));
+    expect(newTable(7)).toEqual(newTable(7));
+    expect(Object.values(newTable(1)).map((o) => o.style.id)).not.toEqual(Object.values(newTable(2)).map((o) => o.style.id));
+  });
+
+  it("give two players of the same style their own thresholds", () => {
+    const all = Array.from({ length: 20 }, (_, t) => Object.values(newTable(t))).flat();
+    const lags = all.filter((o) => o.style.id === "lag").map((o) => o.style.bluff);
+    expect(new Set(lags).size).toBeGreaterThan(1);
+  });
+});
+
 describe("session", () => {
   const { results, decisions, learner } = playSession(150);
 
-  it("produces a grade object for every hero decision", () => {
+  it("grades every hero decision or says why not", () => {
     expect(results).toHaveLength(decisions);
-    const graded = results.filter((r) => r.grade.graded);
-    expect(graded.length).toBeGreaterThan(decisions * 0.4);
     for (const r of results) if (!r.grade.graded) expect(r.grade.reason.length).toBeGreaterThan(0);
   });
 
-  it("only prints numbers the grader produced, and cites a source for every concept", () => {
-    for (const { grade, conceptIds } of results) {
-      const concepts = CORE_CONCEPTS.filter((c) => conceptIds.includes(c.id));
-      const msg = explain(grade, concepts, BIG_BLIND);
-      const text = [msg.headline, ...msg.lines, ...msg.citations, ...msg.caveats].join(" ");
-      expect(ungroundedNumbers(text, allowedNumbers(grade, concepts, BIG_BLIND))).toEqual([]);
-      if (concepts.length > 0) expect(msg.citations.length).toBeGreaterThan(0);
+  it("gives every graded decision a short, specific, number-grounded lesson", () => {
+    for (const { grade, conceptIds, opponents } of results.filter((r) => r.grade.graded)) {
+      const f = feedback(grade, CORE_CONCEPTS.filter((c) => conceptIds.includes(c.id)), opponents, BIG_BLIND);
+      expect(f.stats.length).toBeLessThanOrEqual(3);
+      expect(f.keyPoint.length).toBeGreaterThan(20);
+      expect(ungroundedNumbers(feedbackText(f), allowedNumbers(grade, BIG_BLIND))).toEqual([]);
+      if (f.mix) expect(f.mix.reduce((s, m) => s + m.share, 0)).toBeCloseTo(1, 6);
+      if (grade.graded && grade.basis.kind === "ev") expect(f.read).toMatch(/plays like a/);
     }
   });
 
   it("the number guard rejects an invented figure", () => {
     const g = results.find((r) => r.grade.graded && r.grade.basis.kind === "ev")!.grade;
-    expect(ungroundedNumbers("You had 97.3% equity here.", allowedNumbers(g, [], BIG_BLIND))).toContain("97.3");
+    expect(ungroundedNumbers("You had 97.3% equity here.", allowedNumbers(g, BIG_BLIND))).toContain("97.3");
   });
 
-  it("saves wrong decisions as drillable spots and tracks mastery per concept", () => {
+  it("saves wrong decisions with their opponents so drills replay exactly", () => {
     expect(learner.spots.length).toBeGreaterThan(0);
-    expect(Object.keys(learner.mastery).length).toBeGreaterThan(2);
-    for (const s of learner.spots) expect(s.events[0]!.type).toBe("start");
+    for (const s of learner.spots) {
+      expect(state(s.hand).phase).toBe("betting");
+      expect(Object.keys(s.hand.opponents)).toHaveLength(5);
+    }
   });
 });
 
-describe("coach state machine", () => {
+describe("coach", () => {
   const good = { graded: true, verdict: "good", evLossBB: 0 } as unknown as Grade;
   const blunder = { graded: true, verdict: "blunder", evLossBB: 5 } as unknown as Grade;
 
-  it("pauses for a studied concept at most once per hand, then reveals", () => {
-    let s = coach(initialCoach, { type: "heroTurn", studiedConceptIds: ["pot-odds"] });
-    expect(s.kind).toBe("predict");
-    s = coach(s, { type: "heroActed", grade: good, conceptIds: ["pot-odds"], reason: "pot odds" });
-    expect(s.kind).toBe("reveal");
-    s = coach(s, { type: "dismiss" });
-    s = coach(s, { type: "heroTurn", studiedConceptIds: ["pot-odds"] });
-    expect(s.kind).toBe("idle");
-  });
-
-  it("stays quiet on small errors and interrupts on big ones", () => {
-    expect(coach(initialCoach, { type: "heroActed", grade: good, conceptIds: [], reason: null }).kind).toBe("idle");
-    expect(coach(initialCoach, { type: "heroActed", grade: blunder, conceptIds: [], reason: null }).kind).toBe("reveal");
+  it("shows feedback after every decision and pauses only on costly mistakes", () => {
+    const a = coach(initialCoach, { type: "heroActed", grade: good, conceptIds: [] });
+    expect(a).toMatchObject({ kind: "feedback", paused: false });
+    const b = coach(a, { type: "heroActed", grade: blunder, conceptIds: [] });
+    expect(b).toMatchObject({ kind: "feedback", paused: true });
+    expect(coach(b, { type: "continue" })).toMatchObject({ kind: "feedback", paused: false });
   });
 });

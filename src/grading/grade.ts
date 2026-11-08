@@ -6,7 +6,9 @@ import type { HandEvent, HandState, PlayerAction, SeatIndex } from "../engine/ty
 import { evaluate } from "../evaluator/handRank";
 import { equityVsCombo } from "../evaluator/equity";
 import { positionOf, RFI } from "../evaluator/preflopCharts";
-import { classOf, type Combo, type WeightedCombo } from "../evaluator/ranges";
+import { classOf, type Combo, rangeCombos, type WeightedCombo } from "../evaluator/ranges";
+import { rangeMix } from "./rangeMix";
+import { sizeOptions } from "./sizes";
 import { type ActionValue, type Grade, verdictFor } from "./types";
 import { effectiveSize, villainRange } from "./villainRange";
 
@@ -37,6 +39,13 @@ function comboEquity(hero: Combo, villain: Combo, board: readonly Card[], seed: 
   return sum / FLOP_RUNOUTS;
 }
 
+/** All-in for more than twice the pot after calling. */
+function isDeepShove(st: HandState, a: PlayerAction): boolean {
+  if (a.type !== "bet" && a.type !== "raise") return false;
+  const legal = legalActions(st)!;
+  return a.to === legal.raise?.max && a.to - st.seats[a.seat]!.street > 2 * (potSize(st) + legal.callAmount);
+}
+
 const isRaiseFirstIn = (st: HandState) => st.street === "preflop" && st.history.every((a) => a.type === "fold");
 
 function gradeChart(ctx: DecisionContext): Grade {
@@ -52,7 +61,7 @@ function gradeChart(ctx: DecisionContext): Grade {
   return {
     graded: true, street: st.street, seat: action.seat, action, best, evLossBB: null,
     verdict: right ? "good" : "mistake",
-    basis: { kind: "chart", chartId: chart.id, source: chart.source, inChart, handClass },
+    basis: { kind: "chart", chartId: chart.id, source: chart.source, position: pos, inChart, handClass, chartShare: rangeCombos(chart.raise).length / 1326 },
   };
 }
 
@@ -62,10 +71,7 @@ function candidates(st: HandState, action: PlayerAction): PlayerAction[] {
   const out: PlayerAction[] = [action];
   if (!legal.canCheck) out.push({ type: "fold", seat });
   out.push(legal.canCheck ? { type: "check", seat } : { type: "call", seat });
-  if (legal.raise) {
-    out.push({ type: legal.raise.kind, seat, to: aggressiveTo(st) });
-    out.push({ type: legal.raise.kind, seat, to: legal.raise.max });
-  }
+  if (legal.raise) for (const s of sizeOptions(st)) out.push({ type: legal.raise.kind, seat, to: s.to });
   const key = (a: PlayerAction) => `${a.type}:${"to" in a ? a.to : ""}`;
   return out.filter((a, i) => out.findIndex((b) => key(b) === key(a)) === i);
 }
@@ -114,19 +120,38 @@ function gradeEv(ctx: DecisionContext): Grade {
   const equity = range.reduce((s, w) => s + w.weight * eq.get(w)!, 0);
   const bb = st.config.bigBlind;
   const values: ActionValue[] = candidates(st, action).map((a) => ({ action: a, evBB: valueOf(st, a, hero, villain, range, eq, style) / bb }));
-  const best = values.reduce((a, b) => (b.evBB > a.evBB ? b : a));
+  // A deep all-in is priced but never recommended. The one-step lookahead undervalues smaller bets,
+  // which keep later streets to bet on, so a deep shove would look better than it is.
+  const recommendable = values.filter((v) => !isDeepShove(st, v.action));
+  const best = recommendable.reduce((a, b) => (b.evBB > a.evBB ? b : a));
   const chosen = values[0]!;
   const legal = legalActions(st)!;
   const potOddsNeeded = legal.callAmount > 0 ? legal.callAmount / (potSize(st) + legal.callAmount) : null;
   const approximations = [
     ...(st.street !== "river" ? ["Later streets are treated as checked down, so future bets and implied odds are ignored."] : []),
     ...(st.street === "flop" ? [`Equity on the flop is sampled from ${FLOP_RUNOUTS} runouts per opposing hand.`] : []),
-    ...(legal.raise ? ["If you bet and get raised, you either fold or call. Re-raising is not considered."] : []),
+    ...(legal.raise ? ["If you bet and get raised, you either fold or call. Re-raising is not considered.", "A deep all-in is priced but never recommended, because this lookahead undervalues bets that keep later streets to play."] : []),
   ];
   const evLossBB = Math.max(0, best.evBB - chosen.evBB);
+  let foldToBet: number | null = null;
+  let equityWhenCalled: number | null = null;
+  if (legal.raise) {
+    const after = apply(st, { type: legal.raise.kind, seat: hero, to: sizeOptions(st)[0]!.to });
+    if (after.phase === "betting" && after.toAct === villain) {
+      let fold = 0, cont = 0, contEq = 0;
+      for (const w of range) {
+        const d = moveDist(after, villain, w.combo, style);
+        fold += w.weight * d.fold;
+        cont += w.weight * (1 - d.fold);
+        contEq += w.weight * (1 - d.fold) * eq.get(w)!;
+      }
+      foldToBet = fold;
+      equityWhenCalled = cont > 0 ? contEq / cont : null;
+    }
+  }
   return {
     graded: true, street: st.street, seat: hero, action, best: best.action, evLossBB, verdict: verdictFor(evLossBB),
-    basis: { kind: "ev", values, equity, potOddsNeeded, rangeSize: effectiveSize(range), approximations },
+    basis: { kind: "ev", villain, mix: rangeMix(range, st.board), foldToBet, equityWhenCalled, values, equity, potOddsNeeded, rangeSize: effectiveSize(range), approximations },
   };
 }
 

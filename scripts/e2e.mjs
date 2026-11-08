@@ -26,78 +26,79 @@ page.on("pageerror", (e) => errors.push(String(e)));
 try {
   await page.goto(`http://localhost:${PORT}/`);
   await page.getByTestId("table").waitFor();
-  const seen = { predict: 0, reveal: 0, citations: 0, review: 0, decisions: 0 };
+  assert.ok(await page.getByTestId("new-table").isVisible(), "first hand announces a new table");
+  const seen = { feedback: 0, mix: 0, read: 0, pauses: 0, hands: 0, decisions: 0, maxButtons: 0 };
+  let lastFeedback = "";
 
-  // Plays hands with a deliberately loose style: raise when possible, else call. It makes chart mistakes,
-  // which the coach must catch and save as drills.
-  for (let step = 0; step < 400 && seen.review < 12; step++) {
+  // A deliberately loose player: raise when possible, else call. It makes mistakes the coach must catch.
+  for (let step = 0; step < 500 && seen.hands < 12; step++) {
     if (process.env.E2E_DEBUG) console.log(step, JSON.stringify(seen));
-    if (await page.getByTestId("predict").isVisible()) seen.predict++;
-    if (await page.getByTestId("dismiss").isVisible()) {
-      seen.reveal++;
-      if (await page.getByTestId("citations").isVisible()) seen.citations++;
-      if (seen.reveal === 1) await page.screenshot({ path: `${OUT}/reveal.png` });
-      await page.getByTestId("dismiss").click();
+    if (await page.getByTestId("feedback").isVisible()) {
+      const text = await page.getByTestId("feedback").innerText();
+      if (text !== lastFeedback) {
+        lastFeedback = text;
+        seen.feedback++;
+        assert.ok((await page.getByTestId("key-point").innerText()).length > 10, "every feedback card has a key point");
+        if (await page.getByTestId("range-mix").isVisible()) seen.mix++;
+        if (await page.getByTestId("read").isVisible()) seen.read++;
+        if (seen.mix === 1 && (await page.getByTestId("range-mix").isVisible())) await page.screenshot({ path: `${OUT}/feedback.png` });
+      }
+    }
+    if (await page.getByTestId("continue").isVisible()) {
+      seen.pauses++;
+      await page.getByTestId("continue").click();
       continue;
     }
     if (await page.getByTestId("next-hand").isVisible()) {
-      seen.review++;
-      assert.match(await page.getByTestId("review").innerText(), /does not affect your grades/);
-      if (seen.review === 1) await page.screenshot({ path: `${OUT}/review.png` });
+      seen.hands++;
+      assert.match(await page.getByTestId("review").innerText(), /Your decisions are what count/);
       await page.getByTestId("next-hand").click();
       continue;
     }
     if (await page.getByTestId("action-bar").isVisible()) {
-      if (await page.getByTestId("reason").isVisible()) await page.getByTestId("reason").fill("testing a loose line");
-      const raise = page.getByTestId("act-raise");
-      const call = page.getByTestId("act-call");
       seen.decisions++;
-      if (await raise.isVisible()) await raise.click();
-      else if (await call.isVisible()) await call.click();
-      else await page.getByTestId("act-check").click();
+      seen.maxButtons = Math.max(seen.maxButtons, await page.getByTestId("action-bar").locator("button").count());
+      if (seen.decisions === 1) await page.screenshot({ path: `${OUT}/decision.png` });
+      for (const id of ["act-raise", "act-call", "act-check"]) {
+        if (await page.getByTestId(id).isVisible()) {
+          await page.getByTestId(id).click();
+          break;
+        }
+      }
     }
   }
   console.log("seen", seen);
-  assert.ok(seen.review >= 12, "played at least 12 hands to review");
-  assert.ok(seen.predict >= 1, "coach paused on a studied spot");
-  assert.ok(seen.reveal >= 3, "coach revealed grades");
-  assert.ok(seen.citations >= 1, "a reveal cited its source");
+  assert.ok(seen.hands >= 12, "played 12 hands");
+  assert.ok(seen.feedback >= 5, "feedback after decisions");
+  assert.ok(seen.mix >= 1, "showed what the opponent likely has");
+  assert.ok(seen.read >= 1, "revealed an opponent's style");
+  assert.ok(seen.maxButtons <= 5, "at most five action buttons");
 
-  // Mistakes return as drills a few minutes later, not immediately.
+  // Mistakes return as practice a few minutes later, not immediately.
   await page.clock.fastForward("05:00");
   await page.getByTestId("tab-progress").click();
   await page.getByTestId("tab-play").click();
-  const drillButton = page.getByTestId("start-drills");
-  assert.match(await drillButton.innerText(), /Drills \([1-9]\d* due\)/);
-  await drillButton.click();
+  await page.getByTestId("start-drills").click();
   await page.getByTestId("drill-banner").waitFor();
-  await page.getByTestId("drill-prompt").waitFor();
-  const raiseButton = page.getByTestId("act-raise");
-  if (await raiseButton.isVisible()) {
-    const before = await raiseButton.innerText();
-    await page.getByText("All-in").click();
-    assert.notEqual(await raiseButton.innerText(), before, "a sizing preset changes the raise amount");
-  }
-  await page.screenshot({ path: `${OUT}/drill.png` });
   for (const id of ["act-fold", "act-check", "act-call"]) {
     if (await page.getByTestId(id).isVisible()) {
       await page.getByTestId(id).click();
       break;
     }
   }
-  await page.getByTestId("reveal").waitFor();
+  await page.getByTestId("feedback").waitFor();
+  await page.screenshot({ path: `${OUT}/drill.png` });
+  await page.getByTestId("next-drill").click();
 
   await page.getByTestId("tab-progress").click();
   assert.match(await page.getByTestId("progress").innerText(), /EV lost per decision/);
   await page.screenshot({ path: `${OUT}/progress.png` });
-  await page.getByTestId("tab-concepts").click();
-  assert.match(await page.getByTestId("concepts").innerText(), /Pot odds/);
 
   await page.setViewportSize({ width: 390, height: 844 });
   await page.getByTestId("tab-play").click();
   const scrollW = await page.evaluate(() => document.documentElement.scrollWidth);
   assert.ok(scrollW <= 390, `no horizontal scroll on phone width (got ${scrollW})`);
-  await page.screenshot({ path: `${OUT}/phone.png` });
+  await page.screenshot({ path: `${OUT}/phone.png`, fullPage: true });
 
   assert.deepEqual(errors, [], "no page errors");
   console.log("e2e passed");

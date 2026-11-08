@@ -1,4 +1,4 @@
-import type { HandEvent } from "../engine/types";
+import type { Hand } from "../session/session";
 import type { Grade, Verdict } from "../grading/types";
 import { fresh, type Mastery, record, studying } from "./mastery";
 
@@ -14,7 +14,8 @@ export interface LogEntry {
 
 export interface SavedSpot {
   readonly id: string;
-  readonly events: readonly HandEvent[];
+  /** The hand just before the decision, with its opponents, so the drill replays it exactly. */
+  readonly hand: Hand;
   readonly conceptIds: readonly string[];
   readonly savedAt: number;
 }
@@ -29,7 +30,7 @@ export interface Learner {
 export const emptyLearner: Learner = { mastery: {}, log: [], spots: [] };
 const MAX_SPOTS = 200;
 
-export function learnFrom(l: Learner, g: Grade, conceptIds: readonly string[], spotEvents: readonly HandEvent[], origin: Origin, now: number): Learner {
+export function learnFrom(l: Learner, g: Grade, conceptIds: readonly string[], before: Hand, origin: Origin, now: number): Learner {
   if (!g.graded) return l;
   const mastery = { ...l.mastery };
   for (const id of conceptIds) mastery[id] = record(mastery[id] ?? fresh(id, now), g.verdict, now);
@@ -37,7 +38,7 @@ export function learnFrom(l: Learner, g: Grade, conceptIds: readonly string[], s
   const wrong = g.verdict === "mistake" || g.verdict === "blunder";
   const id = `${now}-${l.spots.length}`;
   const spots = wrong && origin !== "benchmark" && conceptIds.length > 0
-    ? [...l.spots, { id, events: spotEvents, conceptIds, savedAt: now }].slice(-MAX_SPOTS)
+    ? [...l.spots, { id, hand: { ...before, grades: [] }, conceptIds, savedAt: now }].slice(-MAX_SPOTS)
     : l.spots;
   return { mastery, log, spots };
 }

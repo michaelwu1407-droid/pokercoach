@@ -2,104 +2,78 @@
 
 ## Goal
 
-The owner learns to play winning No-Limit Hold'em by playing. Teaching happens inside play, at the moments a decision is made. Success means the owner's decisions lose less EV over time against a fixed benchmark. Knowing the rules or reciting a book does not count.
+The owner learns to play winning No-Limit Hold'em by playing. Teaching happens right after each decision, using the numbers that decision turned on. Success means the owner's decisions lose less EV over time. Knowing the rules or reciting a book does not count.
+
+The app needs no LLM. Every number comes from code, and every lesson is a template filled with those numbers.
 
 ## How people actually learn a skill like poker
 
-Each finding below changes a design rule. Sources are named so they can be checked.
+Each finding changes a design rule. Sources are named so they can be checked.
 
 | Finding | Source | Design rule |
 |---|---|---|
-| Skill grows through deliberate practice. That means targeted weaknesses, immediate feedback, and repetition just past current ability. | Ericsson, Krampe, Tesch-Römer (1993) | The coach picks which spots you see, aimed at your measured leaks. Random play alone is not practice. |
-| Retrieval practice and spaced practice are the two highest-utility study techniques. Rereading and summarising are low utility. | Dunlosky et al. (2013), *Psychological Science in the Public Interest* | Concepts come back as decisions to make, on a spacing schedule. The app never shows a summary page as the main teaching act. |
-| Interleaving mixed problem types beats blocked practice for transfer. | Rohrer & Taylor (2007); Bjork's "desirable difficulties" | Drills mix spot types. The learner must first recognise which concept applies, which is the real in-game skill. |
-| Predicting before seeing the answer improves retention, even when the prediction is wrong. | Pretesting and generation effect literature (Richland, Kornell, Bjork) | At teaching spots, ask "what's your read and why?" before showing the answer. |
-| Novices learn faster from worked examples, then fade the support. | Sweller, cognitive load theory; the expertise reversal effect | Early on, show the reasoning steps. As mastery rises, show less and ask more. |
-| Explaining your own reasoning deepens understanding. | Chi et al., self-explanation effect | Optional one-line "why" from the learner, which the coach critiques. |
-| One-to-one mastery tutoring is the largest known effect in education. | Bloom (1984), "2 Sigma Problem" | A per-learner skill model gates progression. Move on only after a concept is shown in play. |
-| Poker outcomes are noisy. Judging a decision by its result ("resulting") teaches the wrong lesson. | Annie Duke, *Thinking in Bets* | Grade by EV loss only. Show the outcome separately and say so when a good decision lost. |
-| Too much feedback during a task harms learning and flow. | Guidance hypothesis, motor learning (Salmoni, Schmidt) | Interrupt only on big mistakes or spots the learner is studying. Everything else goes in the post-hand review. |
+| Skill grows through deliberate practice: targeted weaknesses, immediate feedback, repetition just past current ability. | Ericsson, Krampe, Tesch-Römer (1993) | Mistakes come back as drills. Progress shows the biggest leaks. |
+| Retrieval and spaced practice beat rereading and summaries. | Dunlosky et al. (2013) | Concepts return as decisions to make, on a spacing schedule. No reading pages. |
+| Interleaving mixed problem types beats blocked practice. | Rohrer & Taylor (2007); Bjork | Drills mix concepts, so the learner must spot which idea applies. |
+| Committing to an answer before seeing it improves retention. | Pretesting and generation effect (Richland, Kornell, Bjork) | You always decide first. Feedback comes only after. |
+| Novices need worked reasoning with low extraneous load. | Sweller, cognitive load theory | One feedback card: verdict, at most three numbers, one takeaway. Details are one tap away. |
+| Judging decisions by results teaches the wrong lesson. | Annie Duke, *Thinking in Bets* | Grades ignore the outcome. The hand result is shown apart, with a reminder. |
+| Too much interruption harms learning and flow. | Guidance hypothesis (Salmoni, Schmidt) | Every decision gets a card, but only costly mistakes stop play. |
+| Reads must be learned, not given. | Standard poker coaching practice | Opponent styles are hidden at the table. Feedback reveals them after you act. |
 
 ## The systems
 
-Seven parts. The first two are deterministic code. The LLM lives only in parts 3 and 5.
+All deterministic code.
 
-1. **Game engine.** Deals, enforces legal actions, computes pots and side pots, runs showdown. A hand is an event log reduced to state.
-2. **Evaluator (ground truth).** Hand ranking, equity vs a range, pot odds, and the best action with its EV for a given spot. Preflop uses open-raise charts. Heads-up postflop spots get an EV for each option from a one-step lookahead against the bot's known strategy. A solver is the upgrade path. This is what makes feedback correct.
-3. **Knowledge base.** Turns the owner's textbooks into concepts. Each concept has a name, a plain statement, prerequisites, the situations where it applies, and cited source chunks.
-4. **Learner model.** Per-concept mastery estimate, review schedule, and a leak list built from graded decisions.
-5. **Coach.** Policy that decides when to interrupt, what to ask, and what to drill next. Explanations are built only from the grader's numbers and pass a check that rejects any number the grader did not produce. The LLM works offline, in book extraction.
-6. **Opponents.** Bots with named, stable styles (tight-passive, loose-aggressive, calling station). They let a spot recur on purpose and make exploits teachable.
-7. **Measurement.** EV loss per decision, per concept, over time. This is the north-star metric.
+1. **Game engine.** Deals, enforces legal actions, computes side pots, runs showdown. A hand is an event log reduced to state.
+2. **Evaluator.** Hand ranking, equity against a range, pot odds, open-raise charts.
+3. **Opponents.** Four styles (nit, regular, maniac, calling station). Each table seats five random styles, each player with their own thresholds. The table changes every 25 hands.
+4. **Grader.** Infers the opponent's range from their known strategy, prices every option you could have clicked, and grades your choice by EV lost.
+5. **Coach.** Turns a grade into one feedback card, and decides whether to pause play.
+6. **Learner model.** Mastery per concept, spaced review, saved mistakes for drills.
+7. **Measurement.** EV lost per decision, by week and by concept.
 
 ## Core data shapes
 
-Named first, per pstack's Foundational Thinking and Model the Domain.
-
-- `HandEvent`. Discriminated union of `Start | Fold | Check | Call | Bet | Raise`. `Start` carries the table and the shuffled deck, so blinds, deals and payouts are derived, never stored. The hand is `HandEvent[]`.
-- `Spot`. A decision point derived from the log: position, stacks, pot, board, action history, hero cards. Pure data, hashable.
-- `Grade`. `{ spot, action, bestAction, evLossBB, conceptIds }`. Produced only by the evaluator.
-- `Concept`. `{ id, statement, prerequisites, appliesWhen: SpotPredicate, sources: ChunkRef[] }`. `appliesWhen` is code, so the coach can find matching spots by query.
-- `Mastery`. `{ conceptId, estimate, lastSeen, nextDue }`. Updated from `Grade`s.
-- `CoachTurn`. State machine. `Idle → Predict → Reveal → Explain → Idle`, plus `Review` after the hand.
+- `HandEvent`. `Start | Fold | Check | Call | Bet | Raise`. `Start` carries the table and the shuffled deck, so blinds, deals and payouts are derived. The hand is `HandEvent[]`.
+- `Opponents`. Seat to `{ name, style }`. Stored on each hand, so drills replay against the same players.
+- `Grade`. Graded with a chart or EV basis, or ungraded with a reason. The EV basis carries equity, pot odds, fold share, equity when called, and the opponent's range mix.
+- `Feedback`. Context, headline, up to three stats, range mix, key point, opponent read, details.
+- `CoachState`. `idle | feedback(paused?)`.
+- `Mastery` and `SavedSpot` for spaced drills.
 
 ## The core loop
 
-1. The coach picks the next table setup, weighted toward due and weak concepts.
-2. The owner plays. At a spot tagged with a studied concept, play pauses at Predict.
-3. The owner acts, and optionally gives a one-line reason.
-4. The evaluator grades it. Big EV loss or a studied concept triggers Reveal and Explain, with the cited source. Otherwise play continues.
-5. After the hand, a short review lists the graded spots. Outcome is shown apart from grade.
-6. Mastery updates. Missed concepts return later as drills, mixed with other spot types.
-
-## What the textbook pipeline must do
-
-- Ingest PDF or EPUB that the owner provides. Split into chunks that keep chapter and page.
-- Extract candidate concepts with the LLM. Each must quote its chunk.
-- A human (the owner, or a review pass) approves concepts before they teach. Wrong teaching is worse than none.
-- Link each concept to a `SpotPredicate` and to the evaluator check that proves it. A concept with no checkable claim stays explanation-only and never grades.
-- Where two books disagree, keep both and let the evaluator decide which applies.
+1. You play a hand at a table of five unknown players.
+2. You decide. Nothing hints at the answer first.
+3. A feedback card appears for that decision. Play pauses only if it cost 2bb or more, or broke the open-raise chart.
+4. The card shows what they likely had, the numbers that decided it, one takeaway, and who the opponent really is.
+5. After the hand, a short review lists your graded decisions. The result is shown apart from the grades.
+6. Mistakes return as practice a few minutes later, mixed with other concepts.
 
 ## Risks
 
-- **LLM poker math is unreliable.** Mitigated by invariant 1. Tested by asserting no number in a coach message is absent from the evaluator output.
-- **Postflop solving is expensive.** Start with preflop and simple flop spots. Precompute common spots offline.
-- **Solver licences.** The main open-source solvers are AGPL. Decide before linking one in.
-- **Copyright.** Books stay local and are never redistributed.
-- **Bot quality.** Weak bots teach exploiting weak bots. Styles must be named and their leaks known.
-- **Scope.** Six-max cash NLHE only until the loop is proven. No tournaments, no other variants.
-
-## Build order
-
-Each phase ends in a check that runs, per pstack's Sequence Work into Verifiable Units.
-
-1. **Engine.** Exit when a property test plays 100k random hands with chip conservation and legal-action invariants holding.
-2. **Evaluator, preflop.** Exit when equity matches a reference calculator within 0.5% on a fixed test set, and preflop grades match the chosen range charts.
-3. **Playable table with bots.** Exit when the owner plays a full session in the browser, driven end to end by a UI test.
-4. **Grading and review.** Exit when every decision in a session gets a `Grade` and the review screen shows them.
-5. **Knowledge base from one book.** Exit when ingest, extraction and review run on a real book, every approved concept quotes its source word for word, and an invented quote is rejected. Book concepts teach but never grade. Only built-in concepts, whose claims the grader measures, take credit for a grade.
-6. **Coach loop.** Exit when Predict, Reveal, Explain fires on tagged spots, cites a source, and passes the "no invented numbers" test.
-7. **Learner model and spaced drills.** Exit when a missed concept reappears on schedule and mastery moves on correct play.
-8. **Measure impact.** Exit when a fixed benchmark spot set shows EV loss per decision trending over four weeks of use.
+- **Grades are exact against these bots, approximate for poker in general.** The lookahead treats later streets as checked down. Each card says so under "How this was worked out".
+- **Bot quality.** Weak bots teach exploiting weak bots. Styles have named leaks, and the grader exposed one already (decision 4).
+- **Scope.** Six-max cash only until the loop is proven.
 
 ## Status (2026-11-08)
 
-| Phase | State | Evidence |
+| Part | State | Evidence |
 |---|---|---|
-| 1 Engine | Done | `src/engine/engine.test.ts`. 100k random hands conserve chips and replay identically. |
-| 2 Evaluator | Done | `src/evaluator/*.test.ts`. All 2,598,960 five-card hands match the known category counts. Equity matches outs counting exactly. |
-| 3 Table with bots | Done | `scripts/e2e.mjs` plays 12 hands in Chromium. Bot styles verified by simulated VPIP in `src/bots/bots.test.ts`. |
-| 4 Grading and review | Done | `src/grading/grade.test.ts`, `src/session/session.test.ts`. Every hero decision gets a grade or a stated reason it has none. |
-| 5 Knowledge base | Built, waiting on a book and an API key | `src/kb/kb.test.ts`. Ingest tested on PDF, EPUB and text. Extraction reaches the API and stops at authentication. |
-| 6 Coach loop | Done | Number-grounding check runs on every message in a 150-hand simulated session. |
-| 7 Spaced drills | Done | e2e fast-forwards the clock 5 minutes and drills come due. |
-| 8 Measure impact | Instrumented, needs four weeks of play | Progress tab shows EV lost per decision by week and the biggest leaks. |
+| Engine | Done | 100k random hands conserve chips and replay identically. |
+| Evaluator | Done | All 2,598,960 five-card hands match the known counts. Equity matches outs counting. |
+| Opponents | Done | Random styles per table, individual thresholds, verified by test. |
+| Grader | Done | Grades proven independent of undealt cards. Recommendations are always a button on screen. |
+| Coach | Done | Every card in a 150-hand session passes the number-grounding check and has a key point. |
+| Drills | Done | Browser test fast-forwards 5 minutes and drills come due. |
+| Measurement | Needs four weeks of play | Progress tab shows EV lost per decision by week and the biggest leaks. |
 
-Gaps, in order of teaching impact: preflop spots other than raise-first-in are not graded; multiway pots are not graded; postflop EV ignores later streets. Each ungraded spot says why in the review.
+Not graded yet, in order of teaching impact: preflop spots other than raise-first-in, and multiway pots. Each says why on its card.
 
-## Product calls defaulted (change any)
+## Defaults (change any)
 
-- Game: No-Limit Hold'em, six-max cash, 100bb.
-- Platform: web, desktop-first.
-- Books: owner supplies them. First book to ingest is the owner's choice.
-- Interruptions: only on EV loss above 2bb or on studied concepts.
+- No-Limit Hold'em, six-max cash, 100bb.
+- Web, desktop and phone.
+- Play pauses on losses of 2bb or more.
+- Open-raise charts are approximate defaults written for this app.

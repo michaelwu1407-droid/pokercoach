@@ -56,7 +56,7 @@ function postflop(st: Betting, combo: Combo, style: Style, legal: LegalActions):
   }
   const betToPot = legal.callAmount / Math.max(1, potSize(st) - legal.callAmount);
   const pressure = betToPot / (betToPot + 1.5);
-  const callBar = style.callBase + (1 - style.callBase) * pressure;
+  const callBar = Math.min(0.98, style.callBase + (1 - style.callBase) * pressure * style.sizeFear);
   const raise = Math.max(sig(made - style.raiseValue), draw ? style.semiBluff * 0.3 : 0);
   const call = (1 - raise) * sig(strength - callBar);
   return { fold: 1 - raise - call, passive: call, aggressive: raise };

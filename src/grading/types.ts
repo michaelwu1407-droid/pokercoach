@@ -1,4 +1,6 @@
 import type { PlayerAction, SeatIndex, Street } from "../engine/types";
+import type { Position } from "../evaluator/preflopCharts";
+import type { MixShare } from "./rangeMix";
 
 export type Verdict = "good" | "small" | "mistake" | "blunder";
 
@@ -9,9 +11,25 @@ export interface ActionValue {
 }
 
 export type Basis =
-  | { readonly kind: "chart"; readonly chartId: string; readonly source: string; readonly inChart: boolean; readonly handClass: string }
+  | {
+      readonly kind: "chart";
+      readonly chartId: string;
+      readonly source: string;
+      readonly position: Position;
+      readonly inChart: boolean;
+      readonly handClass: string;
+      /** Share of all starting hands the chart opens from this seat. */
+      readonly chartShare: number;
+    }
   | {
       readonly kind: "ev";
+      readonly villain: SeatIndex;
+      /** What the opponent likely holds, grouped by hand type. Shares sum to 1. */
+      readonly mix: readonly MixShare[];
+      /** Share of their range that folds to the smallest offered bet or raise. Null when you cannot raise. */
+      readonly foldToBet: number | null;
+      /** Your equity against the hands that call or raise that bet. */
+      readonly equityWhenCalled: number | null;
       readonly values: readonly ActionValue[];
       /** Hero's showdown equity against the inferred range, before anyone acts. */
       readonly equity: number;

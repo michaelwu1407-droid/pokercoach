@@ -1,106 +1,88 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
+import type { Opponents } from "../bots/opponents";
 import { coach, type CoachState, initialCoach } from "../coach/machine";
-import type { HandEvent, PlayerAction } from "../engine/types";
-import { applies, type Concept } from "../learn/concepts";
-import { drillQueue, learnFrom, type Learner, type Origin, type SavedSpot, studiedIds } from "../learn/learner";
-import { spotView } from "../learn/spot";
-import { conceptsAt, type Hand, heroAct, HERO, LINEUP, newHand, state } from "../session/session";
+import type { PlayerAction } from "../engine/types";
+import { drillQueue, learnFrom, type Learner, type SavedSpot } from "../learn/learner";
+import { type Hand, HANDS_PER_TABLE, heroAct, newHand, newTable } from "../session/session";
 import { ALL_CONCEPTS, loadLearner, saveLearner } from "./store";
 
-export type Mode = { readonly kind: "play"; readonly handNo: number } | { readonly kind: "drill"; readonly queue: readonly SavedSpot[]; readonly index: number };
+export type Mode =
+  | { readonly kind: "play"; readonly handNo: number; readonly tableSeed: number }
+  | { readonly kind: "drill"; readonly queue: readonly SavedSpot[]; readonly index: number; readonly answered: boolean };
 
 export interface Game {
   readonly mode: Mode;
   readonly hand: Hand;
   readonly coachState: CoachState;
   readonly learner: Learner;
-  readonly concepts: readonly Concept[];
-  /** Book concepts that apply to the current spot. They teach but are never graded. */
-  readonly related: readonly Concept[];
-  act(action: PlayerAction, reason: string | null): void;
-  dismiss(): void;
+  /** True on the first hand at a new table. */
+  readonly newTable: boolean;
+  act(action: PlayerAction): void;
+  resume(): void;
   nextHand(): void;
   startDrills(): boolean;
+  nextDrill(): void;
   stopDrills(): void;
 }
 
-const seedFor = (handNo: number) => (Date.now() % 1_000_000) * 7 + handNo;
-
-function drillHand(spot: SavedSpot): Hand {
-  return { seed: 1, events: spot.events as HandEvent[], grades: [], gradeConcepts: [] };
-}
+const freshSeed = () => Math.floor(Math.random() * 2 ** 31);
+const tables = new Map<number, Opponents>();
+const tableFor = (seed: number) => tables.get(seed) ?? (tables.set(seed, newTable(seed)), tables.get(seed)!);
 
 export function useGame(): Game {
   const [learner, setLearner] = useState<Learner>(loadLearner);
-  const [mode, setMode] = useState<Mode>({ kind: "play", handNo: 0 });
-  const [hand, setHand] = useState<Hand>(() => newHand(seedFor(0), 0));
+  const [first] = useState(() => {
+    const tableSeed = freshSeed();
+    return { mode: { kind: "play", handNo: 0, tableSeed } as Mode, hand: newHand(freshSeed(), 0, tableFor(tableSeed)) };
+  });
+  const [mode, setMode] = useState<Mode>(first.mode);
+  const [hand, setHand] = useState<Hand>(first.hand);
   const [coachState, setCoach] = useState<CoachState>(initialCoach);
   useEffect(() => saveLearner(learner), [learner]);
 
-  const st = state(hand);
-  const heroToAct = st.phase === "betting" && st.toAct === HERO;
-  const related = useMemo(() => {
-    if (!heroToAct) return [];
-    const view = spotView(st, HERO, LINEUP);
-    return ALL_CONCEPTS.filter((c) => !c.graded && applies(c, view));
-  }, [hand, heroToAct]);
-
-  useEffect(() => {
-    if (!heroToAct || coachState.kind !== "idle") return;
-    const ids = conceptsAt(st, ALL_CONCEPTS).map((c) => c.id);
-    const studied = mode.kind === "drill" ? [] : studiedIds(learner, ids, Date.now());
-    setCoach((c) => coach(c, { type: "heroTurn", studiedConceptIds: studied }));
-  }, [hand, heroToAct]);
-
-  const act = useCallback((action: PlayerAction, reason: string | null) => {
-    const origin: Origin = mode.kind === "drill" ? "drill" : "play";
+  const act = useCallback((action: PlayerAction) => {
     const r = heroAct(hand, action, ALL_CONCEPTS);
     const ids = r.concepts.map((c) => c.id);
-    setLearner((l) => learnFrom(l, r.grade, ids, r.spotEvents, origin, Date.now()));
-    if (mode.kind === "drill") {
-      setCoach({ kind: "reveal", grade: r.grade, conceptIds: ids, reason, pausesThisHand: 1 });
-      return;
-    }
-    let c = coach(coachState, { type: "heroActed", grade: r.grade, conceptIds: ids, reason });
-    if (state(r.hand).phase === "complete" && c.kind !== "reveal") c = coach(c, { type: "handEnded", grades: r.hand.grades });
-    setCoach(c);
-    setHand(r.hand);
-  }, [hand, coachState, mode]);
+    setLearner((l) => learnFrom(l, r.grade, ids, r.before, mode.kind === "drill" ? "drill" : "play", Date.now()));
+    setCoach((c) => coach(c, { type: "heroActed", grade: r.grade, conceptIds: ids }));
+    if (mode.kind === "drill") setMode({ ...mode, answered: true });
+    else setHand(r.hand);
+  }, [hand, mode]);
 
-  const dismiss = useCallback(() => {
-    if (mode.kind === "drill") {
-      const index = mode.index + 1;
-      if (index >= mode.queue.length) return void (setMode({ kind: "play", handNo: 0 }), startPlay(0));
-      setMode({ ...mode, index });
-      setHand(drillHand(mode.queue[index]!));
-      setCoach(initialCoach);
-      return;
-    }
-    const c = coach(coachState, { type: "dismiss" });
-    setCoach(state(hand).phase === "complete" ? coach(c, { type: "handEnded", grades: hand.grades }) : c);
-  }, [mode, coachState, hand]);
+  const resume = useCallback(() => setCoach((c) => coach(c, { type: "continue" })), []);
 
-  function startPlay(handNo: number) {
-    setHand(newHand(seedFor(handNo), handNo));
+  const playHand = (handNo: number, tableSeed: number) => {
+    setMode({ kind: "play", handNo, tableSeed });
+    setHand(newHand(freshSeed(), handNo, tableFor(tableSeed)));
     setCoach(initialCoach);
-  }
+  };
 
   const nextHand = useCallback(() => {
-    const handNo = mode.kind === "play" ? mode.handNo + 1 : 0;
-    setMode({ kind: "play", handNo });
-    startPlay(handNo);
+    if (mode.kind !== "play") return playHand(0, freshSeed());
+    const handNo = mode.handNo + 1;
+    playHand(handNo, handNo % HANDS_PER_TABLE === 0 ? freshSeed() : mode.tableSeed);
   }, [mode]);
 
   const startDrills = useCallback(() => {
     const queue = drillQueue(learner, Date.now());
     if (queue.length === 0) return false;
-    setMode({ kind: "drill", queue, index: 0 });
-    setHand(drillHand(queue[0]!));
+    setMode({ kind: "drill", queue, index: 0, answered: false });
+    setHand(queue[0]!.hand);
     setCoach(initialCoach);
     return true;
   }, [learner]);
 
-  const stopDrills = useCallback(() => nextHand(), [nextHand]);
+  const nextDrill = useCallback(() => {
+    if (mode.kind !== "drill") return;
+    const index = mode.index + 1;
+    if (index >= mode.queue.length) return playHand(0, freshSeed());
+    setMode({ ...mode, index, answered: false });
+    setHand(mode.queue[index]!.hand);
+    setCoach(initialCoach);
+  }, [mode]);
 
-  return { mode, hand, coachState, learner, concepts: ALL_CONCEPTS, related, act, dismiss, nextHand, startDrills, stopDrills };
+  const stopDrills = useCallback(() => playHand(0, freshSeed()), []);
+  const isNewTable = mode.kind === "play" && mode.handNo % HANDS_PER_TABLE === 0;
+
+  return { mode, hand, coachState, learner, newTable: isNewTable, act, resume, nextHand, startDrills, nextDrill, stopDrills };
 }

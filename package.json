@@ -8,24 +8,17 @@
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
     "e2e": "node scripts/e2e.mjs",
-    "verify": "npm run typecheck && npm test && npm run build && npm run e2e",
-    "kb:ingest": "vite-node scripts/kb/ingest.ts --",
-    "kb:extract": "vite-node scripts/kb/extract.ts --",
-    "kb:review": "vite-node scripts/kb/review.ts --"
+    "verify": "npm run typecheck && npm test && npm run build && npm run e2e"
   },
   "devDependencies": {
-    "@anthropic-ai/sdk": "^1.6.0",
     "@types/node": "^22.10.1",
     "@types/react": "^18.3.12",
     "@types/react-dom": "^18.3.1",
     "@vitejs/plugin-react": "^4.3.4",
     "fast-check": "^3.23.1",
-    "jszip": "^3.10.2",
-    "pdfjs-dist": "^6.5.438",
     "typescript": "^5.6.3",
     "vite": "^5.4.11",
-    "vitest": "^2.1.8",
-    "zod": "^4.6.7"
+    "vitest": "^2.1.8"
   },
   "dependencies": {
     "react": "^18.3.1",
