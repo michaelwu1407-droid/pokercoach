@@ -22,7 +22,10 @@ function boardLevel(board: readonly Card[]): number {
 
 export function classify(combo: Combo, board: readonly Card[]): MixLabel {
   const level = CATEGORIES.indexOf(categoryOf(evaluate([...combo, ...board])));
-  if (level >= CATEGORIES.indexOf("two pair") && level > boardLevel(board)) return "Two pair or better";
+  const twoPair = CATEGORIES.indexOf("two pair");
+  // Two pair made with a pair on the board is really one pair: 2-2 on K-K-5 is a small pair.
+  const strong = level > twoPair ? level > boardLevel(board) : level === twoPair && boardLevel(board) === 0;
+  if (strong) return "Two pair or better";
   const top = Math.max(...board.map(rankOf));
   const [a, b] = [rankOf(combo[0]), rankOf(combo[1])];
   const boardRanks = new Set(board.map(rankOf));

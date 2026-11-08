@@ -64,9 +64,9 @@ Every major client (PokerStars, GGPoker, partypoker) shares one layout: a slider
 
 | Mechanic | Standard clients | pokercoach before | pokercoach now |
 |---|---|---|---|
-| Choose any bet size | Slider, presets, typed amount | Three fixed buttons | Presets (Min, ½ pot, ¾ pot, Pot, All-in), slider, typed dollars, arrow keys |
+| Choose any bet size | Slider, presets, typed amount | Three fixed buttons | Three presets (Usual raise or Half pot, Pot, All-in), slider, arrow keys. The typed box was cut as clutter (decision 18) |
 | See what each player did | Action label on each seat | Only stack changes | Label per seat for the street: "Call $1", "Raise to $7.50", "Fold" |
-| Follow the action | Short pause per action | All bots acted instantly | One action every 0.65s, Space or click to skip ahead |
+| Follow the action | Short pause per action | All bots acted instantly | One action every 0.45s, Space or click to skip ahead |
 | Dealer button | Yes | No | Yes |
 | Showdown result | Winner and hand named | Payout only | "Nico wins $24 with two pair, Kings and Sevens" |
 | Fits one screen | Yes | Page scrolled | Header, table and coach fill the window; the browser test checks it |

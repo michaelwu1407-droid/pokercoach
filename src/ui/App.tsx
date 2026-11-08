@@ -1,13 +1,14 @@
 import { useCallback, useState } from "react";
 import { signedMoney } from "../coach/words";
 import { describeHand } from "../evaluator/describe";
+import { isMiss } from "../grading/types";
+import { CORE_CONCEPTS } from "../learn/concepts";
 import { drillQueue } from "../learn/learner";
 import { HERO, state } from "../session/session";
 import { ActionBar } from "./ActionBar";
 import { CoachPanel } from "./CoachPanel";
 import { Help } from "./Help";
 import { Progress } from "./Progress";
-import { ALL_CONCEPTS } from "./store";
 import { Table } from "./Table";
 import { useGame } from "./useGame";
 import { useKeys } from "./useKeys";
@@ -21,18 +22,19 @@ export function App() {
   const st = state(game.shown);
   const bb = st.config.bigBlind;
   const drilling = game.mode.kind === "drill";
-  const paused = game.coachState.kind === "feedback" && game.coachState.paused;
-  const answered = game.mode.kind === "drill" && game.mode.answered;
-  const heroTurn = !game.playing && st.phase === "betting" && st.toAct === HERO && !paused && !answered;
-  const handOver = !game.playing && st.phase === "complete" && !paused && !drilling;
+  const answered = drilling && game.decisions.length > 0;
+  const heroTurn = !game.playing && st.phase === "betting" && st.toAct === HERO && !answered;
+  const handOver = !game.playing && st.phase === "complete" && !drilling;
   const due = drillQueue(game.learner, Date.now()).length;
   const decisionKey = `${game.hand.seed}:${game.shown.events.length}:${game.mode.kind === "drill" ? game.mode.index : "play"}`;
+  const me = st.seats[HERO]!;
 
-  const misses = game.hand.grades.filter((g) => g.graded && (g.verdict === "mistake" || g.verdict === "blunder")).length;
-  const net = st.phase === "complete" ? (st.payouts.find((p) => p.seat === HERO)?.amount ?? 0) - st.seats[HERO]!.total : 0;
-  const next = paused ? game.resume : answered ? game.nextDrill : handOver ? game.nextHand : game.playing ? game.skip : null;
-  const onKey = useCallback((k: string) => (k === " " || k === "enter") && next !== null && (next(), true), [next]);
-  useKeys(next ? onKey : null);
+  const misses = game.decisions.filter((d) => d.grade?.graded && isMiss(d.grade.verdict)).length;
+  const net = st.phase === "complete" ? (st.payouts.find((p) => p.seat === HERO)?.amount ?? 0) - me.total : 0;
+  const next = answered ? game.nextDrill : handOver ? game.nextHand : game.playing ? game.skip : null;
+  // Space always belongs to the game, so it never presses whatever button last had focus.
+  const onKey = useCallback((k: string) => (k === " " || k === "enter") && (next?.(), true), [next]);
+  useKeys(page === "table" ? onKey : null);
 
   return (
     <div className="app">
@@ -40,36 +42,44 @@ export function App() {
         <span className="brand">pokercoach</span>
         {drilling
           ? <button data-testid="stop-drills" onClick={game.stopDrills}>Back to the table</button>
-          : due > 0 && page === "table" && <button data-testid="start-drills" onClick={game.startDrills}>Practise {due} mistake{due > 1 ? "s" : ""}</button>}
+          : due > 0 && page === "table" && <button className="primary" data-testid="start-drills" onClick={game.startDrills}>Practise {due} mistake{due > 1 ? "s" : ""}</button>}
         <button data-testid="tab-progress" onClick={() => setPage(page === "table" ? "progress" : "table")}>
           {page === "table" ? "Progress" : "Back to the table"}
         </button>
         <button data-testid="help-button" aria-label="How to play" onClick={() => setHelp(true)}>?</button>
       </header>
       {page === "table" ? (
-        <main className={`play${game.coachState.kind === "feedback" ? " with-coach" : ""}`}>
+        <main className="play">
           <div className="play-main">
             {game.mode.kind === "drill" && (
               <p className="banner" data-testid="drill-banner">Practice {game.mode.index + 1} of {game.mode.queue.length}: you got this spot wrong before.</p>
             )}
             <Table st={st} events={game.shown.events} onSkip={game.skip} />
             <div className="controls">
-              <p className="you-have" data-testid="you-have">You have: <b>{describeHand(st.seats[HERO]!.hole, st.board)}</b></p>
-              {heroTurn && <ActionBar key={decisionKey} st={st} onAct={game.act} />}
-              {paused && <button className="primary wide" data-testid="continue" onClick={game.resume}>Got it, continue</button>}
-              {answered && <button className="primary wide" data-testid="next-drill" onClick={game.nextDrill}>Next</button>}
-              {handOver && (
-                <div className="hand-over" data-testid="review">
-                  <span>{signedMoney(net, bb)} this hand{misses > 0 ? ` · ${misses} mistake${misses > 1 ? "s" : ""}` : ""}</span>
-                  <button className="primary" data-testid="next-hand" onClick={game.nextHand}>Next hand</button>
-                </div>
-              )}
+              <p className="you-have" data-testid="you-have">
+                {me.folded ? "You folded" : "You have"}: <b>{describeHand(me.hole, st.board)}</b>
+              </p>
+              <div className="next-row">
+                {heroTurn && <ActionBar key={decisionKey} st={st} onAct={game.act} />}
+                {answered && <button className="primary wide" data-testid="next-drill" onClick={game.nextDrill}>Next</button>}
+                {handOver && (
+                  <div className="hand-over" data-testid="review">
+                    <span>
+                      {signedMoney(net, bb)} this hand
+                      {misses > 0 ? ` · ${misses} mistake${misses > 1 ? "s" : ""} saved for practice` : ""}
+                    </span>
+                    <button className="primary" data-testid="next-hand" onClick={game.nextHand}>Next hand</button>
+                  </div>
+                )}
+                {game.playing && <p className="muted small waiting">Others are acting. Space skips ahead.</p>}
+              </div>
             </div>
           </div>
-          <CoachPanel coachState={game.coachState} opponents={game.hand.opponents} bigBlind={bb} />
+          <CoachPanel key={game.hand.seed} decisions={game.decisions} opponents={game.hand.opponents} bigBlind={bb}
+            moment={heroTurn ? "turn" : handOver ? "review" : "watching"} newTable={game.newTableHand} />
         </main>
       ) : (
-        <Progress learner={game.learner} concepts={ALL_CONCEPTS} />
+        <Progress learner={game.learner} concepts={CORE_CONCEPTS} />
       )}
       {help && <Help onClose={() => setHelp(false)} />}
     </div>

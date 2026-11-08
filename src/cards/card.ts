@@ -38,7 +38,6 @@ export function parseCards(text: string): Card[] {
 }
 
 export const formatCard = (c: Card): string => `${RANKS[rankOf(c)]}${SUITS[suitOf(c)]}`;
-export const formatCards = (cs: readonly Card[]): string => cs.map(formatCard).join(" ");
 
 export const FULL_DECK: readonly Card[] = Array.from({ length: 52 }, (_, i) => i as Card);
 
@@ -54,8 +53,9 @@ export function mulberry32(seed: number): () => number {
   };
 }
 
-export function shuffled(rng: () => number, deck: readonly Card[] = FULL_DECK): Card[] {
-  const out = [...deck];
+/** Fisher-Yates shuffle, unbiased, driven by the given generator. */
+export function shuffled<T>(rng: () => number, items: readonly T[]): T[] {
+  const out = [...items];
   for (let i = out.length - 1; i > 0; i--) {
     const j = Math.floor(rng() * (i + 1));
     [out[i], out[j]] = [out[j]!, out[i]!];

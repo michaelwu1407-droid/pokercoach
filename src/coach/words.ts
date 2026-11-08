@@ -9,6 +9,9 @@ export function money(chips: number, bigBlind: number): string {
   return `$${Number.isInteger(d) ? d : d.toFixed(2)}`;
 }
 
+/** The one name for putting every chip in, used on buttons, seats and feedback alike. */
+export const allInLabel = (chips: number, bigBlind: number) => `All-in ${money(chips, bigBlind)}`;
+
 export const signedMoney = (chips: number, bigBlind: number) => `${chips >= 0 ? "+" : "−"}${money(chips, bigBlind)}`;
 
 /** Dollars from an amount already counted in big blinds. */

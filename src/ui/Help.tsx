@@ -25,10 +25,18 @@ export const SEATS = [
   ["Early, Middle, Late", "The seats after the blinds, in the order they act. The earlier you act, the fewer hands you should play."],
 ] as const;
 
+export const RULES = [
+  "Play few hands, and fewer still from the early seats. Most hands should be folded before the flop.",
+  "Before you call, compare your chance to win with the chance you need. The coach shows both after every decision.",
+  "Bet when worse hands will call you or better hands will fold. Otherwise check.",
+] as const;
+
 export const WORDS = [
   ["Check", "Bet nothing and pass the turn on. Only possible when nobody has bet."],
   ["Call", "Match the current bet."],
   ["Raise / re-raise", "Make the bet bigger. A re-raise is a raise after someone else raised."],
+  ["Raise to $8", "Your total bet becomes $8, including anything you already put in this round."],
+  ["Kicker", "Your other card when two players share a pair. A-K beats A-10 on an ace-high board because the king kicks higher."],
   ["Fold", "Give up the hand and anything you put in."],
   ["Bluff", "Bet with a weak hand so that better hands fold."],
   ["Chance to win", "How often your hand would win if all the cards were dealt out now."],
@@ -48,7 +56,10 @@ export const SHEET = [
   ["Same high card, better kicker (A-K vs A-10)", "About 70% to 30%"],
 ] as const;
 
-export const KEYS = [["F", "Fold"], ["C", "Check or call"], ["R", "First bet or raise"], ["2, 3", "Bigger amounts"], ["Space", "Continue or next hand"]] as const;
+export const KEYS = [
+  ["F", "Fold"], ["C", "Check or call"], ["R", "Open the bet sizer, then R or Enter to confirm"],
+  ["Arrow keys", "Change the bet amount"], ["Escape", "Close the bet sizer"], ["Space", "Skip ahead or deal the next hand"],
+] as const;
 
 export function Help({ onClose }: { onClose: () => void }) {
   useEffect(() => {
@@ -64,9 +75,8 @@ export function Help({ onClose }: { onClose: () => void }) {
           <button data-testid="help-close" onClick={onClose} aria-label="Close">Close</button>
         </div>
         <p>Make the best five-card hand from your two cards and the five shared cards. Everyone starts with $100. Bet when you are ahead or can make them fold. After each decision the coach shows your chance to win, what they likely had, and what your choice cost.</p>
-        <h3>Odds worth memorising</h3>
-        <dl className="terms">{SHEET.map(([t, d]) => <div key={t}><dt>{t}</dt><dd>{d}</dd></div>)}</dl>
-        <p className="muted">Quick rule for draws: count your outs, multiply by 4 on the flop or by 2 on the turn. That is roughly your chance to hit.</p>
+        <h3>Three rules to start with</h3>
+        <ol className="plain-list">{RULES.map((r) => <li key={r}>{r}</li>)}</ol>
         <h3>Hands, strongest first</h3>
         <ol className="plain-list">{RANKINGS.map(([n, d]) => <li key={n}><b>{n}.</b> {d}.</li>)}</ol>
         <h3>The four betting rounds</h3>
@@ -75,6 +85,9 @@ export function Help({ onClose }: { onClose: () => void }) {
         <dl className="terms">{SEATS.map(([t, d]) => <div key={t}><dt>{t}</dt><dd>{d}</dd></div>)}</dl>
         <h3>Words the coach uses</h3>
         <dl className="terms">{WORDS.map(([t, d]) => <div key={t}><dt>{t}</dt><dd>{d}</dd></div>)}</dl>
+        <h3>Odds worth memorising</h3>
+        <dl className="terms">{SHEET.map(([t, d]) => <div key={t}><dt>{t}</dt><dd>{d}</dd></div>)}</dl>
+        <p className="muted">Quick rule for draws: count your outs, multiply by 4 on the flop or by 2 on the turn. That is roughly your chance to hit.</p>
         <h3>Keys</h3>
         <ul className="plain-list">{KEYS.map(([k, d]) => <li key={k}><kbd>{k}</kbd> {d}</li>)}</ul>
         <button className="primary wide sheet-start" data-testid="help-start" onClick={onClose}>Start playing</button>

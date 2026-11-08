@@ -4,7 +4,6 @@ import { decide } from "../bots/policy";
 import { STYLES } from "../bots/styles";
 import { feedback, feedbackText } from "../coach/feedback";
 import { allowedNumbers, ungroundedNumbers } from "../coach/grounding";
-import { coach, initialCoach } from "../coach/machine";
 import type { Grade } from "../grading/types";
 import { CORE_CONCEPTS } from "../learn/concepts";
 import { emptyLearner, learnFrom, type Learner } from "../learn/learner";
@@ -56,7 +55,7 @@ describe("session", () => {
 
   it("gives every graded decision a short, specific, number-grounded lesson", () => {
     for (const { grade, conceptIds, opponents } of results.filter((r) => r.grade.graded)) {
-      const f = feedback(grade, CORE_CONCEPTS.filter((c) => conceptIds.includes(c.id)), opponents, BIG_BLIND);
+      const f = feedback(grade, opponents, BIG_BLIND);
       expect(f.stats.length).toBeLessThanOrEqual(3);
       expect(f.keyPoint.length).toBeGreaterThan(20);
       expect(ungroundedNumbers(feedbackText(f), allowedNumbers(grade, BIG_BLIND))).toEqual([]);
@@ -76,20 +75,5 @@ describe("session", () => {
       expect(state(s.hand).phase).toBe("betting");
       expect(Object.keys(s.hand.opponents)).toHaveLength(5);
     }
-  });
-});
-
-describe("coach", () => {
-  const good = { graded: true, verdict: "good", evLossBB: 0 } as unknown as Grade;
-  const blunder = { graded: true, verdict: "blunder", evLossBB: 5 } as unknown as Grade;
-
-  it("shows feedback after every decision and pauses at most once per hand on costly mistakes", () => {
-    const a = coach(initialCoach, { type: "heroActed", grade: good, conceptIds: [] });
-    expect(a).toMatchObject({ kind: "feedback", paused: false });
-    const b = coach(a, { type: "heroActed", grade: blunder, conceptIds: [] });
-    expect(b).toMatchObject({ kind: "feedback", paused: true });
-    const c = coach(coach(b, { type: "continue" }), { type: "heroActed", grade: blunder, conceptIds: [] });
-    expect(c).toMatchObject({ kind: "feedback", paused: false });
-    expect(coach(c, { type: "newHand" })).toEqual(initialCoach);
   });
 });

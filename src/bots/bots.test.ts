@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { mulberry32, shuffled } from "../cards/card";
+import { FULL_DECK, mulberry32, shuffled } from "../cards/card";
 import { apply, legalActions, start } from "../engine/reduce";
 import type { HandState, PlayerAction } from "../engine/types";
 import { decide, moveDist, moveOf } from "./policy";
@@ -15,7 +15,7 @@ function simulate(hands: number) {
     let st: HandState = start({
       type: "start",
       config: { seats: order.map((id, i) => ({ id: `${id}${i}`, stack: 10_000 })), smallBlind: 50, bigBlind: 100, button },
-      deck: shuffled(rng),
+      deck: shuffled(rng, FULL_DECK),
     });
     const voluntary = new Set<number>();
     while (st.phase === "betting") {
@@ -48,6 +48,5 @@ describe("bots", () => {
     expect(vpip("station")).toBeGreaterThan(vpip("tag"));
     expect(af("lag")).toBeGreaterThan(af("tag"));
     expect(af("station")).toBeLessThan(af("tag"));
-    console.table(Object.fromEntries(Object.entries(s).map(([k, v]) => [k, { vpip: vpip(k).toFixed(2), af: af(k).toFixed(2) }])));
   }, 120_000);
 });

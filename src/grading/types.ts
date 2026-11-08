@@ -10,6 +10,9 @@ export interface ActionValue {
   readonly action: PlayerAction;
   /** Expected chips won from this point, in big blinds. Chips already in the pot are sunk. */
   readonly evBB: number;
+  /** For a bet or raise: how often everyone folds to it, and your chance to win when someone continues. */
+  readonly foldShare: number | null;
+  readonly winWhenCalled: number | null;
 }
 
 export type Basis =
@@ -25,6 +28,8 @@ export type Basis =
       readonly bestMove: ChartMove;
       /** You raised a hand that is a standard raise one seat later. */
       readonly borderline: boolean;
+      /** You raised far more than the usual size. */
+      readonly oversized: boolean;
       /** Share of all starting hands the chart raises, and calls, in this spot. */
       readonly raiseShare: number;
       readonly callShare: number;
@@ -41,10 +46,6 @@ export type Basis =
       readonly opponents: number;
       /** What the opponent likely holds, grouped by hand type. Shares sum to 1. */
       readonly mix: readonly MixShare[];
-      /** Share of their range that folds to the smallest offered bet or raise. Null when you cannot raise. */
-      readonly foldToBet: number | null;
-      /** Your equity against the hands that call or raise that bet. */
-      readonly equityWhenCalled: number | null;
       readonly values: readonly ActionValue[];
       /** Hero's showdown equity against the inferred range, before anyone acts. */
       readonly equity: number;
@@ -58,8 +59,15 @@ export type Basis =
 export interface Win {
   /** Your share of the pot if all cards were dealt out now. */
   readonly chance: number;
-  /** Opponents it is measured against. 0 means one random hand, used preflop before anyone puts money in. */
-  readonly against: number;
+  /** Opponents it is measured against. Empty means one random hand, used preflop before anyone puts money in. */
+  readonly against: readonly SeatIndex[];
+}
+
+export interface Facing {
+  /** The total bet you had to match this round. */
+  readonly to: number;
+  /** Who made it. Null for the big blind's forced bet. */
+  readonly by: SeatIndex | null;
 }
 
 export interface Graded {
@@ -74,6 +82,9 @@ export interface Graded {
   readonly basis: Basis;
   readonly win: Win;
   readonly draw: Draw | null;
+  readonly facing: Facing | null;
+  /** Your total bet this round if you went all-in, so every surface can name all-in the same way. */
+  readonly allInTo: number;
 }
 
 export interface Ungraded {
@@ -86,17 +97,21 @@ export interface Ungraded {
 
 export type Grade = Graded | Ungraded;
 /** What each grader returns. `grade` adds your chance to win and any draw. */
-export type GradeCore = Omit<Graded, "win" | "draw"> | Ungraded;
+export type GradeCore = Omit<Graded, "win" | "draw" | "facing" | "allInTo"> | Ungraded;
 
-const aggressive = (a: PlayerAction) => a.type === "bet" || a.type === "raise";
+/** Mistakes and blunders: the decisions that count against you and come back as practice. */
+export const isMiss = (v: Verdict) => v === "mistake" || v === "blunder";
+
+export const aggressive = (a: PlayerAction) => a.type === "bet" || a.type === "raise";
 
 /**
- * Right idea with the wrong size is "small" at most. Sizing is a second-order skill, and the card
- * still shows what the better size earns.
+ * Right idea with the wrong size is at most a "mistake", and only "close" under 3bb, because the
+ * choice to bet was right. The card still shows what the better size earns.
  */
 export function verdictForChoice(chosen: PlayerAction, best: PlayerAction, evLossBB: number): Verdict {
   const v = verdictFor(evLossBB);
-  return aggressive(chosen) && aggressive(best) && v !== "good" ? "small" : v;
+  if (!aggressive(chosen) || !aggressive(best) || v === "good") return v;
+  return evLossBB < 3 ? "small" : "mistake";
 }
 
 export function verdictFor(evLossBB: number): Verdict {

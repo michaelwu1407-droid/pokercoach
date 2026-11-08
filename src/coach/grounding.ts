@@ -21,6 +21,8 @@ export function allowedNumbers(g: Grade, bigBlind: number): Set<string> {
   };
   walk(g);
   add(bigBlind);
+  // "Chance to win vs 3 players" counts the seats the grader measured against.
+  if (g.graded) add(g.win.against.length);
   return out;
 }
 

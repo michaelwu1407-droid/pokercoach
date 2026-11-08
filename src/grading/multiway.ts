@@ -5,9 +5,8 @@ import { apply, canAct, legalActions, potSize } from "../engine/reduce";
 import type { HandEvent, HandState, PlayerAction, SeatIndex } from "../engine/types";
 import { evaluate } from "../evaluator/handRank";
 import type { Combo, WeightedCombo } from "../evaluator/ranges";
-import { candidates, isDeepShove } from "./options";
+import { candidates, pickBest, potOddsNeeded } from "./options";
 import { rangeMix } from "./rangeMix";
-import { sizeOptions } from "./sizes";
 import { type ActionValue, type GradeCore, verdictForChoice } from "./types";
 import { effectiveSize, villainRange } from "./villainRange";
 
@@ -93,7 +92,8 @@ export function gradeMultiway(events: readonly HandEvent[], st: HandState, actio
     const heroTo = after.seats[hero]!.street;
     let ev = 0, foldAll = 0, calledShare = 0, calledWeight = 0;
     for (const x of samples) {
-      const cont = responders.map(({ v, i }) => 1 - moveDist({ ...after, toAct: v } as HandState, v, x.combos[i]!, styles[v]!).fold);
+      // Each responder is asked as if it were their turn: the same state with them to act.
+      const cont = responders.map(({ v, i }) => (after.phase === "betting" ? 1 - moveDist({ ...after, toAct: v }, v, x.combos[i]!, styles[v]!).fold : 0));
       const responderMask = responders.reduce((m, { i }) => m | (1 << i), 0);
       for (let sub = 0; sub < 1 << responders.length; sub++) {
         let p = 1, mask = all & ~responderMask, pot = potAfter;
@@ -113,11 +113,12 @@ export function gradeMultiway(events: readonly HandEvent[], st: HandState, actio
     return { ev: ev / n, foldAll: foldAll / n, eqCalled: calledWeight > 0 ? calledShare / calledWeight : null };
   };
 
-  const values: ActionValue[] = candidates(st, action).map((a) => ({ action: a, evBB: valueOf(a).ev / bb }));
-  const best = values.filter((v) => !isDeepShove(st, v.action)).reduce((a, b) => (b.evBB > a.evBB ? b : a));
-  const evLossBB = Math.max(0, best.evBB - values[0]!.evBB);
-  const legal = legalActions(st)!;
-  const smallest = legal.raise ? valueOf({ type: legal.raise.kind, seat: hero, to: sizeOptions(st)[0]!.to }) : null;
+  const values: ActionValue[] = candidates(st, action).map((a) => {
+    const v = valueOf(a);
+    const bet = a.type === "bet" || a.type === "raise";
+    return { action: a, evBB: v.ev / bb, foldShare: bet ? v.foldAll : null, winWhenCalled: bet ? v.eqCalled : null };
+  });
+  const { best, evLossBB } = pickBest(st, values);
   const lastAggressor = [...st.history].reverse().find((h) => (h.type === "bet" || h.type === "raise") && villains.includes(h.seat))?.seat;
   const focus = lastAggressor ?? villains[0]!;
   const focusIdx = villains.indexOf(focus);
@@ -125,8 +126,7 @@ export function gradeMultiway(events: readonly HandEvent[], st: HandState, actio
     graded: true, street: st.street, seat: hero, action, best: best.action, evLossBB, verdict: verdictForChoice(action, best.action, evLossBB),
     basis: {
       kind: "ev", villain: focus, opponents: villains.length, mix: rangeMix(ranges[focusIdx]!, st.board),
-      foldToBet: smallest ? smallest.foldAll : null, equityWhenCalled: smallest?.eqCalled ?? null,
-      values, equity, potOddsNeeded: legal.callAmount > 0 ? legal.callAmount / (potSize(st) + legal.callAmount) : null,
+      values, equity, potOddsNeeded: potOddsNeeded(st),
       rangeSize: effectiveSize(ranges[focusIdx]!),
       approximations: [
         `Against ${villains.length} opponents, their hands and the cards to come are sampled ${samples.length} times.`,

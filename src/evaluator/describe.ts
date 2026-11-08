@@ -1,11 +1,9 @@
 import { type Card, rankOf, suitOf } from "../cards/card";
-import { categoryOf, evaluate } from "./handRank";
+import { categoryOf, evaluate, type HandScore, scoreRanks } from "./handRank";
 
 const NAMES = ["Two", "Three", "Four", "Five", "Six", "Seven", "Eight", "Nine", "Ten", "Jack", "Queen", "King", "Ace"];
 const PLURAL = ["Twos", "Threes", "Fours", "Fives", "Sixes", "Sevens", "Eights", "Nines", "Tens", "Jacks", "Queens", "Kings", "Aces"];
 
-/** Kicker ranks packed into the score, highest first. */
-const kickers = (score: number) => [4, 3, 2, 1, 0].map((i) => Math.floor(score / 16 ** i) % 16);
 
 /** Plain-English name of what the hole cards make with the board. "Pair of Kings", "Ace-King suited". */
 export function describeHand(hole: readonly [Card, Card], board: readonly Card[]): string {
@@ -15,14 +13,22 @@ export function describeHand(hole: readonly [Card, Card], board: readonly Card[]
     return `${NAMES[rankOf(a)]}-${NAMES[rankOf(b)]} ${suitOf(a) === suitOf(b) ? "suited" : "offsuit"}`;
   }
   const score = evaluate([...hole, ...board]);
-  const [k1, k2] = kickers(score);
+  if (board.length === 5 && evaluate(board) === score) return `The board plays: ${handName(score).toLowerCase()}, so everyone still in has it`;
+  return handName(score, hole);
+}
+
+/** The hand's name. With your cards given, a pair that is only on the board is called out as shared. */
+export function handName(score: HandScore, hole?: readonly [Card, Card]): string {
+  const [k1, k2] = scoreRanks(score);
   const category = categoryOf(score);
-  const holeRanks = hole.map(rankOf);
+  const holeRanks = hole ? hole.map(rankOf) : [];
   const made = category === "pair" || category === "trips" ? [k1!] : category === "two pair" ? [k1!, k2!] : null;
-  if (made && !made.some((r) => holeRanks.includes(r))) {
+  if (hole && made && !made.some((r) => holeRanks.includes(r))) {
     const shared = category === "pair" ? `pair of ${PLURAL[k1!]}` : category === "trips" ? `three ${PLURAL[k1!]}` : `two pair`;
-    return `${NAMES[Math.max(...holeRanks)]} high. The ${shared} is on the board, so everyone has it`;
+    return `${NAMES[Math.max(...holeRanks)]} high (the ${shared} is on the board)`;
   }
+  // Ace high when the Ace is on the board tells you nothing; your own best card is what matters.
+  if (hole && category === "high card" && !holeRanks.includes(k1!)) return `No pair, ${NAMES[Math.max(...holeRanks)]} high`;
   switch (category) {
     case "high card": return `${NAMES[k1!]} high`;
     case "pair": return `Pair of ${PLURAL[k1!]}`;

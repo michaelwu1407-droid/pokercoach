@@ -1,16 +1,13 @@
-import { type Card, FULL_DECK, mulberry32 } from "../cards/card";
+import { type Card, FULL_DECK } from "../cards/card";
 import { moveDist, toAction } from "../bots/policy";
 import type { Style } from "../bots/styles";
 import { apply, legalActions, potSize } from "../engine/reduce";
 import type { HandState, PlayerAction, SeatIndex } from "../engine/types";
 import { evaluate } from "../evaluator/handRank";
+import { showdownShare } from "../evaluator/equity";
 import type { Combo } from "../evaluator/ranges";
-import { isDeepShove } from "./options";
 import { sizeOptions } from "./sizes";
 
-/** Next cards sampled per lookahead, and later cards sampled per combo for equity after it. */
-export const NEXT_CARDS = 10;
-const LATER_CARDS = 8;
 type Values = Float64Array;
 
 interface Setup {
@@ -21,38 +18,37 @@ interface Setup {
   /** Board at the decision being graded. The next card is appended to it. */
   readonly board: readonly Card[];
   readonly combos: readonly Combo[];
-  readonly seed: number;
 }
 
 const blocked = (c: Combo, cards: readonly Card[]) => cards.includes(c[0]) || cards.includes(c[1]);
 
-/** Hero's showdown share against each combo on `board`, sampling later cards when the board is not full. */
-function shares(s: Setup, board: readonly Card[], rng: () => number): Values {
+/** Hero's exact showdown share against each combo on `board`, enumerating the river when it is still to come. */
+function shares(s: Setup, board: readonly Card[]): Values {
   const out = new Float64Array(s.combos.length);
-  const share = (b: readonly Card[], c: Combo) => {
-    const h = evaluate([...s.heroHole, ...b]);
-    const v = evaluate([...c, ...b]);
-    return h > v ? 1 : h === v ? 0.5 : 0;
-  };
-  s.combos.forEach((c, i) => {
-    if (blocked(c, board)) return;
-    if (board.length === 5) return void (out[i] = share(board, c));
-    const deck = FULL_DECK.filter((x) => !board.includes(x) && !s.heroHole.includes(x) && !c.includes(x));
-    let sum = 0;
-    for (let k = 0; k < LATER_CARDS; k++) sum += share([...board, deck[Math.floor(rng() * deck.length)]!], c);
-    out[i] = sum / LATER_CARDS;
-  });
+  const rivers = board.length === 5 ? [null] : FULL_DECK.filter((x) => !board.includes(x) && !s.heroHole.includes(x));
+  for (const river of rivers) {
+    const full = river === null ? board : [...board, river];
+    const h = evaluate([...s.heroHole, ...full]);
+    s.combos.forEach((c, i) => {
+      if (blocked(c, full)) return;
+      out[i]! += showdownShare(h, evaluate([...c, ...full]));
+    });
+  }
+  if (rivers.length > 1) {
+    s.combos.forEach((c, i) => {
+      const live = rivers.filter((r) => r !== null && !c.includes(r)).length;
+      out[i] = live > 0 ? out[i]! / live : 0;
+    });
+  }
   return out;
 }
 
-/** Hero options on the looked-ahead street: check or the non-shove bet sizes, or fold or call. */
+/** Hero options on the looked-ahead street: check or any offered bet, or fold, call or raise. */
 function heroOptions(st: HandState, hero: SeatIndex): PlayerAction[] {
-  const legal = legalActions(st)!;
-  if (legal.canCheck) {
-    const bets = legal.raise ? sizeOptions(st).map((o) => ({ type: legal.raise!.kind, seat: hero, to: o.to }) as PlayerAction) : [];
-    return [{ type: "check", seat: hero }, ...bets.filter((b) => !isDeepShove(st, b))];
-  }
-  return [{ type: "fold", seat: hero }, { type: "call", seat: hero }];
+  const legal = legalActions(st);
+  if (!legal) return [];
+  const sizes: PlayerAction[] = legal.raise ? sizeOptions(st).map((o) => ({ type: legal.raise!.kind, seat: hero, to: o.to })) : [];
+  return legal.canCheck ? [{ type: "check", seat: hero }, ...sizes] : [{ type: "fold", seat: hero }, { type: "call", seat: hero }];
 }
 
 /**
@@ -107,22 +103,40 @@ function playRound(s: Setup, start: HandState, node: HandState, reach: Values, e
   return out;
 }
 
+export interface Lookahead {
+  /** Per combo, the hero's expected gain from `closed` (betting on the graded street just ended) onward. */
+  value(closed: HandState, weights: Values): Values;
+  /** Per combo, the hero's exact chance to win from the graded street, from the same enumeration. */
+  equityNow(): Values;
+}
+
 /**
- * Value of reaching `closed`, the state just after the graded street's betting ends, per combo:
- * the hero's expected gain from that point, averaged over sampled next cards.
+ * Prices the next betting round exactly: every unseen next card, and on the turn every river.
+ * Showdown shares depend only on the cards, so they are computed once per next card and reused for
+ * every line the hero considers.
  */
-export function nextRoundValue(s: Setup, closed: HandState, weights: Values): Values {
-  const rng = mulberry32(s.seed);
+export function makeLookahead(s: Setup): Lookahead {
   const dead = [...s.heroHole, ...s.board];
-  const deck = FULL_DECK.filter((c) => !dead.includes(c)).sort(() => rng() - 0.5).slice(0, NEXT_CARDS);
-  const sum = new Float64Array(s.combos.length);
-  const count = new Float64Array(s.combos.length);
-  for (const card of deck) {
-    const board = [...s.board, card];
-    const start = { ...closed, board } as HandState;
-    const reach = weights.map((w, i) => (blocked(s.combos[i]!, [card]) ? 0 : w));
-    const v = playRound(s, start, start, reach, shares(s, board, rng));
-    for (let i = 0; i < v.length; i++) if (reach[i]! > 0 || weights[i] === 0) (sum[i]! += v[i]!, count[i]! += 1);
-  }
-  return sum.map((x, i) => (count[i]! > 0 ? x / count[i]! : 0));
+  const cards = FULL_DECK.filter((c) => !dead.includes(c));
+  const shareCache = new Map<Card, Values>();
+  const sharesFor = (card: Card) => shareCache.get(card) ?? (shareCache.set(card, shares(s, [...s.board, card])), shareCache.get(card)!);
+  const average = (perCard: (card: Card) => Values) => {
+    const sum = new Float64Array(s.combos.length);
+    const count = new Float64Array(s.combos.length);
+    for (const card of cards) {
+      const v = perCard(card);
+      s.combos.forEach((c, i) => {
+        if (!blocked(c, [card])) (sum[i]! += v[i]!, count[i]! += 1);
+      });
+    }
+    return sum.map((x, i) => (count[i]! > 0 ? x / count[i]! : 0));
+  };
+  return {
+    value: (closed, weights) => average((card) => {
+      const start: HandState = { ...closed, board: [...s.board, card] };
+      const reach = weights.map((w, i) => (blocked(s.combos[i]!, [card]) ? 0 : w));
+      return playRound(s, start, start, reach, sharesFor(card));
+    }),
+    equityNow: () => average(sharesFor),
+  };
 }

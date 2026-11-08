@@ -5,7 +5,7 @@ import { STYLES } from "../bots/styles";
 import { MIX_LABELS } from "../grading/rangeMix";
 import { CORE_CONCEPTS } from "../learn/concepts";
 import { heroAct, newHand, newTable, state } from "../session/session";
-import { ROUNDS, SEATS, SHEET, WORDS } from "../ui/Help";
+import { ROUNDS, RULES, SEATS, SHEET, WORDS } from "../ui/Help";
 import { feedback, feedbackText } from "./feedback";
 import { JARGON, money, seatName } from "./words";
 
@@ -24,7 +24,7 @@ describe("plain words on screen", () => {
   it("keeps every fixed label free of shorthand", () => {
     const fixed = [
       ...MIX_LABELS, ...Object.values(STYLES).flatMap((s) => [s.name, s.leak]),
-      ...CORE_CONCEPTS.flatMap((c) => [c.title, c.statement]), ...[ROUNDS, SEATS, WORDS, SHEET].flat(2),
+      ...CORE_CONCEPTS.flatMap((c) => [c.title, c.statement]), ...[RULES, ROUNDS, SEATS, WORDS, SHEET].flat(2),
     ];
     expect(fixed.filter((t) => JARGON.test(t))).toEqual([]);
   });
@@ -38,7 +38,7 @@ describe("plain words on screen", () => {
       let h = newHand(70_000 + n, n, opp);
       while (state(h).phase === "betting") {
         const r = heroAct(h, decide(state(h), n % 2 ? STYLES.station : STYLES.lag, rng), CORE_CONCEPTS);
-        const text = feedbackText(feedback(r.grade, r.concepts, opp, 100));
+        const text = feedbackText(feedback(r.grade, opp, 100));
         cards++;
         if (JARGON.test(text)) bad.push(text);
         h = r.hand;

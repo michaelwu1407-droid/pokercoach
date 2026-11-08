@@ -22,26 +22,16 @@ export function positionOf(config: TableConfig, seat: SeatIndex): Position {
 }
 
 export interface Chart {
-  readonly id: string;
-  /** Who stands behind this chart. Shown to the learner with every chart-based grade. */
-  readonly source: string;
   readonly raise: ReadonlySet<HandClass>;
 }
 
-const DEFAULT_SOURCE =
-  "Based on the default opening charts for six-player tables with $100 stacks, written for this app.";
-
-const chart = (position: Position, text: string): Chart => ({
-  id: `rfi-${position}`,
-  source: DEFAULT_SOURCE,
-  raise: parseRange(text),
-});
+const chart = (text: string): Chart => ({ raise: parseRange(text) });
 
 /** Raise-first-in charts. Any hand outside the chart folds when the action folds to you. */
 export const RFI: Readonly<Partial<Record<Position, Chart>>> = {
-  UTG: chart("UTG", "55+, A2s+, K9s+, Q9s+, J9s+, T9s, 98s, 87s, AJo+, KQo"),
-  HJ: chart("HJ", "33+, A2s+, K8s+, Q9s+, J9s+, T8s+, 98s, 87s, 76s, ATo+, KJo+, QJo"),
-  CO: chart("CO", "22+, A2s+, K5s+, Q8s+, J8s+, T8s+, 97s+, 86s+, 75s+, 65s, 54s, A8o+, KTo+, QTo+, JTo"),
-  BTN: chart("BTN", "22+, A2s+, K2s+, Q4s+, J6s+, T6s+, 96s+, 85s+, 74s+, 63s+, 53s+, 43s, A2o+, K8o+, Q9o+, J9o+, T8o+, 98o"),
-  SB: chart("SB", "22+, A2s+, K4s+, Q6s+, J7s+, T7s+, 97s+, 86s+, 75s+, 65s, 54s, A4o+, K9o+, QTo+, JTo"),
+  UTG: chart("55+, A2s+, K9s+, Q9s+, J9s+, T9s, 98s, 87s, AJo+, KQo"),
+  HJ: chart("33+, A2s+, K8s+, Q9s+, J9s+, T8s+, 98s, 87s, 76s, ATo+, KJo+, QJo"),
+  CO: chart("22+, A2s+, K5s+, Q8s+, J8s+, T8s+, 97s+, 86s+, 75s+, 65s, 54s, A8o+, KTo+, QTo+, JTo"),
+  BTN: chart("22+, A2s+, K2s+, Q4s+, J6s+, T6s+, 96s+, 85s+, 74s+, 63s+, 53s+, 43s, A2o+, K8o+, Q9o+, J9o+, T8o+, 98o"),
+  SB: chart("22+, A2s+, K4s+, Q6s+, J7s+, T7s+, 97s+, 86s+, 75s+, 65s, 54s, A4o+, K9o+, QTo+, JTo"),
 };

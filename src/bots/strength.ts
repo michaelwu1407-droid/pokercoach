@@ -1,4 +1,5 @@
-import { type Card, FULL_DECK, rankOf, suitOf } from "../cards/card";
+import { type Card, FULL_DECK, suitOf } from "../cards/card";
+import { hasStraight, rankMask } from "../evaluator/structure";
 import { evaluate } from "../evaluator/handRank";
 import { classOf, combosOf, type Combo } from "../evaluator/ranges";
 import strengthTable from "../evaluator/preflopStrength.json";
@@ -51,27 +52,19 @@ export interface Draws {
   readonly straightOuts: number;
 }
 
-const maskOf = (cards: readonly Card[]) => cards.reduce((m, c) => m | (1 << rankOf(c)), 0);
-
-function hasRun(mask: number): boolean {
-  const m = (mask << 1) | ((mask >> 12) & 1);
-  for (let lo = 0; lo <= 9; lo++) if (((m >> lo) & 0b11111) === 0b11111) return true;
-  return false;
-}
-
 export function drawsOf(combo: Combo, board: readonly Card[]): Draws {
   if (board.length === 0 || board.length >= 5) return { flushDraw: false, straightOuts: 0 };
   const cards = [...combo, ...board];
   const flushDraw = [0, 1, 2, 3].some(
     (s) => cards.filter((c) => suitOf(c) === s).length === 4 && combo.some((c) => suitOf(c) === s),
   );
-  const mask = maskOf(cards);
-  const boardMask = maskOf(board);
+  const mask = rankMask(cards);
+  const boardMask = rankMask(board);
   let straightOuts = 0;
-  if (!hasRun(mask))
+  if (!hasStraight(mask))
     for (let r = 0; r < 13; r++) {
       const bit = 1 << r;
-      if (!(mask & bit) && hasRun(mask | bit) && !hasRun(boardMask | bit)) straightOuts++;
+      if (!(mask & bit) && hasStraight(mask | bit) && !hasStraight(boardMask | bit)) straightOuts++;
     }
   return { flushDraw, straightOuts };
 }

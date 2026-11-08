@@ -1,8 +1,7 @@
 import type { Hand } from "../session/session";
-import type { Grade, Verdict } from "../grading/types";
-import { fresh, type Mastery, record, studying } from "./mastery";
+import { type Grade, isMiss, type Verdict } from "../grading/types";
 
-export type Origin = "play" | "drill" | "benchmark";
+export type Origin = "play" | "drill";
 
 export interface LogEntry {
   readonly at: number;
@@ -13,58 +12,58 @@ export interface LogEntry {
 }
 
 export interface SavedSpot {
+  /** The same spot always gets the same id, so a repeated mistake does not save a copy. */
   readonly id: string;
-  /** The hand just before the decision, with its opponents, so the drill replays it exactly. */
+  /** The hand just before the decision, with its opponents, so the practice replays it exactly. */
   readonly hand: Hand;
   readonly conceptIds: readonly string[];
-  readonly savedAt: number;
+  /** When the spot comes back. A wrong answer brings it back soon; a right one retires it. */
+  readonly dueAt: number;
 }
 
 export interface Learner {
-  readonly mastery: Readonly<Record<string, Mastery>>;
   readonly log: readonly LogEntry[];
-  /** Spots the learner got wrong. Drills replay them as fresh decisions. */
+  /** Spots you got wrong. Practice replays them as fresh decisions until you get them right. */
   readonly spots: readonly SavedSpot[];
 }
 
-export const emptyLearner: Learner = { mastery: {}, log: [], spots: [] };
+export const emptyLearner: Learner = { log: [], spots: [] };
 const MAX_SPOTS = 200;
+/** Enough history for many months of weekly progress, well inside browser storage limits. */
+const MAX_LOG = 20_000;
+export const PRACTICE_DELAY_MS = 2 * 60_000;
 
-export function learnFrom(l: Learner, g: Grade, conceptIds: readonly string[], before: Hand, origin: Origin, now: number): Learner {
-  if (!g.graded) return l;
-  const mastery = { ...l.mastery };
-  for (const id of conceptIds) mastery[id] = record(mastery[id] ?? fresh(id, now), g.verdict, now);
-  const log = [...l.log, { at: now, origin, verdict: g.verdict, evLossBB: g.evLossBB, conceptIds }];
-  const wrong = g.verdict === "mistake" || g.verdict === "blunder";
-  const id = `${now}-${l.spots.length}`;
-  const spots = wrong && origin !== "benchmark" && conceptIds.length > 0
-    ? [...l.spots, { id, hand: { ...before, grades: [] }, conceptIds, savedAt: now }].slice(-MAX_SPOTS)
-    : l.spots;
-  return { mastery, log, spots };
-}
-
-/** Concepts the coach should pause on now. Unseen concepts count as studied. */
-export function studiedIds(l: Learner, candidateIds: readonly string[], now: number): string[] {
-  return candidateIds.filter((id) => {
-    const m = l.mastery[id];
-    return m === undefined || studying(m, now);
-  });
-}
+export const spotId = (h: Hand) => `${h.seed}:${h.events.length}`;
 
 /**
- * Next drills: saved mistakes whose concepts are due, interleaved so consecutive drills
- * practise different concepts.
+ * Records a graded decision. A mistake saves the spot for practice. In practice, a right answer
+ * retires the spot and a wrong one brings it back after a short delay.
  */
+export function learnFrom(l: Learner, g: Grade, conceptIds: readonly string[], before: Hand, origin: Origin, now: number): Learner {
+  if (!g.graded) return l;
+  const log = [...l.log, { at: now, origin, verdict: g.verdict, evLossBB: g.evLossBB, conceptIds }].slice(-MAX_LOG);
+  const id = spotId(before);
+  const others = l.spots.filter((s) => s.id !== id);
+  const spots = isMiss(g.verdict) && conceptIds.length > 0
+    ? [...others, { id, hand: before, conceptIds, dueAt: now + PRACTICE_DELAY_MS }].slice(-MAX_SPOTS)
+    : origin === "drill" ? others : l.spots;
+  return { log, spots };
+}
+
+/** Next practice: saved mistakes that are due, interleaved so consecutive ones practise different skills. */
 export function drillQueue(l: Learner, now: number, size = 10): SavedSpot[] {
-  const due = l.spots.filter((s) => s.conceptIds.some((id) => (l.mastery[id]?.dueAt ?? 0) <= now));
   const byConcept = new Map<string, SavedSpot[]>();
-  for (const s of [...due].reverse()) {
-    const k = s.conceptIds[0]!;
+  for (const s of [...l.spots].reverse()) {
+    if (s.dueAt > now) continue;
+    const k = s.conceptIds[0] ?? "";
     byConcept.set(k, [...(byConcept.get(k) ?? []), s]);
   }
   const out: SavedSpot[] = [];
   const queues = [...byConcept.values()];
   while (out.length < size && queues.some((q) => q.length > 0))
-    for (const q of queues) if (q.length > 0 && out.length < size) out.push(q.shift()!);
+    for (const q of queues) {
+      const next = q.shift();
+      if (next && out.length < size) out.push(next);
+    }
   return out;
 }

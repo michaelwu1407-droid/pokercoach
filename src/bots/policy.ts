@@ -80,9 +80,10 @@ export function aggressiveTo(st: HandState): number {
   let to: number;
   if (st.street === "preflop") {
     const limpers = st.seats.filter((s) => s.street === bb && !s.folded).length - 1;
-    to = st.currentBet === bb ? Math.round(2.5 * bb + Math.max(0, limpers) * bb) : 3 * st.currentBet;
-  } else to = st.currentBet === 0 ? Math.round(0.66 * potSize(st)) : 3 * st.currentBet;
-  to = Math.min(r.max, Math.max(r.min, to));
+    to = st.currentBet === bb ? 2.5 * bb + Math.max(0, limpers) * bb : 3 * st.currentBet;
+  } else to = st.currentBet === 0 ? 0.66 * potSize(st) : 3 * st.currentBet;
+  // Rounded to the small blind, like the learner's own sizes, so no odd cents reach the table.
+  to = Math.min(r.max, Math.max(r.min, Math.round(to / 50) * 50));
   return to > 0.6 * (me.street + me.stack) ? r.max : to;
 }
 

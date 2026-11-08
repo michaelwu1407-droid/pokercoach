@@ -1,111 +1,122 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useReducer, useState } from "react";
 import type { Opponents } from "../bots/opponents";
-import { coach, type CoachState, initialCoach } from "../coach/machine";
 import type { PlayerAction } from "../engine/types";
+import type { Grade } from "../grading/types";
+import { CORE_CONCEPTS } from "../learn/concepts";
 import { drillQueue, learnFrom, type Learner, type SavedSpot } from "../learn/learner";
-import { type Hand, HANDS_PER_TABLE, heroAct, newHand, newTable } from "../session/session";
-import { ALL_CONCEPTS, loadLearner, saveLearner } from "./store";
+import { advance, conceptsAt, type Hand, HANDS_PER_TABLE, newHand, newTable, state } from "../session/session";
+import { gradeLater } from "./grader";
+import { loadLearner, saveLearner } from "./store";
+
+/** Pause between opponents' actions, so each one can be followed. */
+export const ACTION_DELAY_MS = 450;
 
 export type Mode =
-  | { readonly kind: "play"; readonly handNo: number; readonly tableSeed: number }
-  | { readonly kind: "drill"; readonly queue: readonly SavedSpot[]; readonly index: number; readonly answered: boolean };
+  | { readonly kind: "play"; readonly handNo: number; readonly opponents: Opponents }
+  | { readonly kind: "drill"; readonly queue: readonly SavedSpot[]; readonly index: number };
 
-export interface Game {
-  readonly mode: Mode;
-  readonly hand: Hand;
-  /** The hand as far as it has been played out on screen. Opponents act one at a time. */
-  readonly shown: Hand;
-  /** True while opponents' actions are still being played out. */
-  readonly playing: boolean;
-  readonly coachState: CoachState;
-  readonly learner: Learner;
-  act(action: PlayerAction): void;
-  resume(): void;
-  /** Shows the rest of the opponents' actions at once. */
-  skip(): void;
-  nextHand(): void;
-  startDrills(): boolean;
-  nextDrill(): void;
-  stopDrills(): void;
+/** One of your decisions this hand. The grade arrives from the worker a moment later. */
+export interface Decision {
+  readonly before: Hand;
+  readonly action: PlayerAction;
+  readonly grade: Grade | null;
 }
 
-/** Pause between opponents' actions, so each one can be seen. */
-export const ACTION_DELAY_MS = 650;
+interface GameState {
+  readonly mode: Mode;
+  readonly hand: Hand;
+  /** How many of the hand's events are on screen. Opponents' actions appear one at a time. */
+  readonly shown: number;
+  readonly decisions: readonly Decision[];
+}
+
+type Event =
+  | { readonly type: "deal"; readonly mode: Mode; readonly hand: Hand }
+  | { readonly type: "act"; readonly action: PlayerAction; readonly next: Hand }
+  | { readonly type: "graded"; readonly index: number; readonly grade: Grade }
+  | { readonly type: "tick" }
+  | { readonly type: "skip" };
+
+const dealt = (mode: Mode, hand: Hand): GameState =>
+  ({ mode, hand, shown: mode.kind === "drill" ? hand.events.length : 1, decisions: [] });
+
+function reducer(s: GameState, e: Event): GameState {
+  switch (e.type) {
+    case "deal":
+      return dealt(e.mode, e.hand);
+    case "act": {
+      const decisions = [...s.decisions, { before: s.hand, action: e.action, grade: null }];
+      // Practice stops at your answer. Play shows your action at once and the others one by one.
+      if (s.mode.kind === "drill") return { ...s, decisions };
+      return { ...s, hand: e.next, shown: s.hand.events.length + 1, decisions };
+    }
+    case "graded":
+      return { ...s, decisions: s.decisions.map((d, i) => (i === e.index ? { ...d, grade: e.grade } : d)) };
+    case "tick":
+      return { ...s, shown: Math.min(s.hand.events.length, s.shown + 1) };
+    case "skip":
+      return { ...s, shown: s.hand.events.length };
+  }
+}
 
 const freshSeed = () => Math.floor(Math.random() * 2 ** 31);
-const tables = new Map<number, Opponents>();
-const tableFor = (seed: number) => tables.get(seed) ?? (tables.set(seed, newTable(seed)), tables.get(seed)!);
 
-export function useGame(): Game {
+function dealPlay(handNo: number, opponents: Opponents): Event {
+  return { type: "deal", mode: { kind: "play", handNo, opponents }, hand: newHand(freshSeed(), handNo, opponents) };
+}
+
+export function useGame() {
   const [learner, setLearner] = useState<Learner>(loadLearner);
-  const [first] = useState(() => {
-    const tableSeed = freshSeed();
-    return { mode: { kind: "play", handNo: 0, tableSeed } as Mode, hand: newHand(freshSeed(), 0, tableFor(tableSeed)) };
+  const [s, dispatch] = useReducer(reducer, null, () => {
+    const opponents = newTable(freshSeed());
+    return dealt({ kind: "play", handNo: 0, opponents }, newHand(freshSeed(), 0, opponents));
   });
-  const [mode, setMode] = useState<Mode>(first.mode);
-  const [hand, setHand] = useState<Hand>(first.hand);
-  const [coachState, setCoach] = useState<CoachState>(initialCoach);
-  const [shownCount, setShown] = useState(1);
   useEffect(() => saveLearner(learner), [learner]);
 
-  const paused = coachState.kind === "feedback" && coachState.paused;
-  const playing = shownCount < hand.events.length;
+  const playing = s.shown < s.hand.events.length;
   useEffect(() => {
-    if (!playing || paused) return;
-    const t = setTimeout(() => setShown((n) => n + 1), ACTION_DELAY_MS);
+    if (!playing) return;
+    const t = setTimeout(() => dispatch({ type: "tick" }), ACTION_DELAY_MS);
     return () => clearTimeout(t);
-  }, [playing, paused, shownCount]);
-  const skip = useCallback(() => setShown(hand.events.length), [hand]);
+  }, [playing, s.shown]);
 
   const act = useCallback((action: PlayerAction) => {
-    const r = heroAct(hand, action, ALL_CONCEPTS);
-    const ids = r.concepts.map((c) => c.id);
-    setLearner((l) => learnFrom(l, r.grade, ids, r.before, mode.kind === "drill" ? "drill" : "play", Date.now()));
-    setCoach((c) => coach(c, { type: "heroActed", grade: r.grade, conceptIds: ids }));
-    if (mode.kind === "drill") setMode({ ...mode, answered: true });
-    else {
-      setHand(r.hand);
-      setShown(hand.events.length + 1);
-    }
-  }, [hand, mode]);
-
-  const resume = useCallback(() => setCoach((c) => coach(c, { type: "continue" })), []);
-
-  const playHand = (handNo: number, tableSeed: number) => {
-    setMode({ kind: "play", handNo, tableSeed });
-    setHand(newHand(freshSeed(), handNo, tableFor(tableSeed)));
-    setShown(1);
-    setCoach(initialCoach);
-  };
+    const before = s.hand;
+    const index = s.decisions.length;
+    const origin = s.mode.kind === "drill" ? "drill" : "play";
+    dispatch({ type: "act", action, next: s.mode.kind === "drill" ? before : advance(before, action) });
+    void gradeLater(before, action).then((grade) => {
+      dispatch({ type: "graded", index, grade });
+      const ids = grade.graded ? conceptsAt(state(before), before.opponents, CORE_CONCEPTS).map((c) => c.id) : [];
+      setLearner((l) => learnFrom(l, grade, ids, before, origin, Date.now()));
+    });
+  }, [s]);
 
   const nextHand = useCallback(() => {
-    if (mode.kind !== "play") return playHand(0, freshSeed());
-    const handNo = mode.handNo + 1;
-    playHand(handNo, handNo % HANDS_PER_TABLE === 0 ? freshSeed() : mode.tableSeed);
-  }, [mode]);
+    if (s.mode.kind !== "play") return dispatch(dealPlay(0, newTable(freshSeed())));
+    const handNo = s.mode.handNo + 1;
+    dispatch(dealPlay(handNo, handNo % HANDS_PER_TABLE === 0 ? newTable(freshSeed()) : s.mode.opponents));
+  }, [s.mode]);
 
   const startDrills = useCallback(() => {
     const queue = drillQueue(learner, Date.now());
-    if (queue.length === 0) return false;
-    setMode({ kind: "drill", queue, index: 0, answered: false });
-    setHand(queue[0]!.hand);
-    setShown(queue[0]!.hand.events.length);
-    setCoach(initialCoach);
-    return true;
+    const first = queue[0];
+    if (first) dispatch({ type: "deal", mode: { kind: "drill", queue, index: 0 }, hand: first.hand });
   }, [learner]);
 
   const nextDrill = useCallback(() => {
-    if (mode.kind !== "drill") return;
-    const index = mode.index + 1;
-    if (index >= mode.queue.length) return playHand(0, freshSeed());
-    setMode({ ...mode, index, answered: false });
-    setHand(mode.queue[index]!.hand);
-    setShown(mode.queue[index]!.hand.events.length);
-    setCoach(initialCoach);
-  }, [mode]);
+    if (s.mode.kind !== "drill") return;
+    const index = s.mode.index + 1;
+    const spot = s.mode.queue[index];
+    dispatch(spot ? { type: "deal", mode: { ...s.mode, index }, hand: spot.hand } : dealPlay(0, newTable(freshSeed())));
+  }, [s.mode]);
 
-  const stopDrills = useCallback(() => playHand(0, freshSeed()), []);
+  const stopDrills = useCallback(() => dispatch(dealPlay(0, newTable(freshSeed()))), []);
+  const skip = useCallback(() => dispatch({ type: "skip" }), []);
+  const shown: Hand = playing ? { ...s.hand, events: s.hand.events.slice(0, s.shown) } : s.hand;
+  const newTableHand = s.mode.kind === "play" && s.mode.handNo % HANDS_PER_TABLE === 0;
 
-  const shown = playing ? { ...hand, events: hand.events.slice(0, shownCount) } : hand;
-  return { mode, hand, shown, playing, skip, coachState, learner, act, resume, nextHand, startDrills, nextDrill, stopDrills };
+  return { mode: s.mode, hand: s.hand, shown, playing, decisions: s.decisions, learner, newTableHand, act, skip, nextHand, startDrills, nextDrill, stopDrills };
 }
+
+export type Game = ReturnType<typeof useGame>;

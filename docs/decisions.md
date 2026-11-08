@@ -12,9 +12,10 @@ Every bot decision is a probability over fold, passive and aggressive (`src/bots
 
 ## 3. What is graded, and how
 
-- Preflop, raise-first-in only. Basis is an open-raise chart. Verdict is right or wrong, with no EV number, because a chart cannot price a deviation.
-- Heads-up postflop. Basis is the EV of each option from a one-step lookahead. The bot responds by its strategy, and later streets are treated as checked down. The learner sees these simplifications under "What this number simplifies".
-- Everything else returns a grade marked ungraded, with the reason shown.
+- Preflop, every decision, by the chart for its situation (decision 9). An oversized raise is a mistake even with a chart hand.
+- Heads-up after the flop, by the EV of each option, looking one betting round ahead (decision 13).
+- Several opponents after the flop, by sampling (decision 10).
+- A decision the grader cannot price is marked ungraded, with the reason shown.
 
 Grading never reads the outcome or undealt cards. A test proves it by reordering the undealt deck.
 
@@ -30,13 +31,13 @@ Every number comes from code, and every lesson is a template filled with grader 
 
 Each table seats five random styles, repeats allowed, and each player gets their own thresholds within 15% of their style. The table changes every 25 hands. Styles are hidden at the table and revealed in feedback after you act against them, so reads are learned from evidence.
 
-## 7. Feedback after every decision, pauses only for costly ones
+## 7. Feedback after every decision, and no pauses
 
-You always commit first. Then one card shows the verdict, at most three numbers, what they likely had, one takeaway, and who they are. Play pauses only on a loss of 2bb or more, or a chart mistake. The takeaway explains the play you made when it was good, and the better play when it was not, including "right idea, wrong size".
+You always commit first. The card then appears beside the table while the others act. Play never pauses: on your next turn the card folds to a one-line recap so nothing hints at the new answer, and at the end of the hand every decision is listed and each one can be reopened. This replaced pausing on costly mistakes, which broke the flow of play.
 
 ## 8. Recommendations are always buttons, and deep shoves are never recommended
 
-The grader prices exactly the sizes the action bar offers (`src/grading/sizes.ts`). An all-in for more than twice the pot is priced but never recommended, because the one-step lookahead undervalues bets that keep later streets to play. Before this rule, deep shoves kept "winning" for that reason alone.
+The grader prices exactly the sizes the action bar offers (`src/grading/sizes.ts`). At the decision, an all-in for more than twice the pot is priced but never recommended, because a one-round lookahead undervalues bets that keep later streets to play. Inside the lookahead every size is priced, so the value of a bet does not jump when a size crosses that line.
 
 ## 9. Every preflop decision is graded by situation
 
@@ -46,9 +47,9 @@ The grader prices exactly the sizes the action bar offers (`src/grading/sizes.ts
 
 Each opponent's range is inferred exactly, as in heads-up. Their hands and the runout are then sampled together 600 times. A bet is answered by each opponent independently, and re-raises count as calls. The card names these simplifications.
 
-## 11. One pause per hand
+## 11. Grading runs off the main thread
 
-A loose beginner made a costly mistake in 58% of simulated hands. Pausing on each would turn play into a lecture, so play pauses at most once per hand. Later mistakes in the same hand still get a card.
+An exact heads-up grade takes about 0.6 seconds on the flop and 0.3 on the turn. It runs in a Web Worker (`src/ui/grader.ts`), so the table never freezes. The card shows "Looking at your decision…" until it is ready.
 
 ## 12. Beginner aids
 
@@ -56,11 +57,7 @@ The guide opens on the first visit with hand rankings and every word the coach u
 
 ## 13. Heads-up flop and turn decisions look one betting round ahead
 
-`src/grading/lookahead.ts` plays out the next betting round over 10 sampled next cards. The opponent follows their strategy. You pick your best option against the range that reaches each point, since you cannot see their cards. Each path keeps its own range, so a range that called your bet is stronger on the next card. After that round the hand is checked down. River decisions stay exact. The 250 heaviest combos (covering 99.5% of the range) are played out and the tail keeps its checked-down value.
-
-What it changed, on a regular-style hero over 400 simulated hands: heads-up blunders fell from 23 to 10 and mistakes from 25 to 14, because a check or call now earns the value it leaves for later. A turn check with the nuts against a calling station is worth 2.34bb in a 2bb pot instead of exactly 2bb. Calls can now be right below the break-even equity (implied odds) and wrong above it (they keep betting), and the card says so. Grading takes 296ms at the 95th percentile and 428ms at most.
-
-Multiway pots still look one action ahead.
+`src/grading/lookahead.ts` plays out the next betting round over every possible next card, not a sample, so the same spot always gets the same grade. The opponent follows their strategy. You pick your best option against the range that reaches each point, since you cannot see their cards. Each path keeps its own range, so a range that called your bet is stronger on the next card. After that round the hand is checked down. River decisions are exact. The heaviest combos covering 99.5% of the range are played out; the tail keeps its checked-down value. Showdown shares are cached per card, which keeps it fast enough for decision 11.
 
 ## 14. Plain words, enforced by tests
 
@@ -80,4 +77,16 @@ See the table in `docs/benchmark.md`. Opponents act one at a time (`ACTION_DELAY
 
 ## 18. Fewer elements
 
-Removed: the Play tab, the new-table banner, the waiting line, key hints on buttons, the typed amount box, opponents' seat labels (the takeaway names the raiser and their seat instead), the hand review list and its disclaimer. The default controls are Fold, Call and Raise; Raise opens three presets and a slider. Every "what next" button sits in the same place under the table. The table uses the full width until there is feedback to show.
+The default controls are Fold, Call and Raise; Raise opens three presets and a slider. Every "what next" control sits in one row under the table, so nothing moves. The coach column is always reserved, so the table never jumps when feedback appears. Opponents' seats show only their last action and blinds.
+
+## 19. One list of bet sizes
+
+`sizeOptions` in `src/grading/sizes.ts` is the only source of preset sizes, rounded to 50 cents. The sizer shows them and the grader prices them, so a recommended size is always a button.
+
+## 20. Practice retires what you have learned
+
+A mistake is saved once per spot, comes back after two minutes, and is retired when you answer it right. A wrong answer brings it back again. Saved progress is validated on load, so a damaged save never breaks the app.
+
+## 21. Browser test is deterministic
+
+The browser test seeds the app's random numbers, so a failure always reproduces. Unit tests cover the variety of hands.

@@ -39,7 +39,7 @@ export const STYLES: Readonly<Record<Style["id"], Style>> = {
   },
   lag: {
     id: "lag", name: "Wild player",
-    leak: "Bets and raises far too often. Their aggression is frequently a bluff, so call down lighter.",
+    leak: "Bets and raises far too often, often as a bluff. Call them with hands you would fold against others.",
     openAs: { UTG: "CO", HJ: "BTN", CO: "BTN", BTN: "BTN", SB: "BTN", BB: null },
     limpTop: 0, threeBetTop: 0.14, callRaiseTop: 0.35,
     valueBet: 0.55, bluff: 0.35, semiBluff: 0.75, callBase: 0.42, raiseValue: 0.8, sizeFear: 0.6,

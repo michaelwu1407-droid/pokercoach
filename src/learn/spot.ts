@@ -38,17 +38,13 @@ export const PREDICATES = {
   "preflop-vs-open": (s: SpotView) => s.preflopSpot === "vs-open",
   "preflop-vs-reraise": (s: SpotView) => s.preflopSpot === "vs-3bet" || s.preflopSpot === "vs-4bet",
   "postflop": (s: SpotView) => s.street !== "preflop",
-  "river": (s: SpotView) => s.street === "river",
   "facing-bet": (s: SpotView) => s.facingBet,
   "not-facing-bet": (s: SpotView) => !s.facingBet,
   "heads-up": (s: SpotView) => s.headsUp,
   "multiway": (s: SpotView) => !s.headsUp,
-  "late-position": (s: SpotView) => s.position === "CO" || s.position === "BTN",
-  "early-position": (s: SpotView) => s.position === "UTG" || s.position === "HJ",
   "vs-nit": (s: SpotView) => s.villainStyle === "nit",
   "vs-maniac": (s: SpotView) => s.villainStyle === "lag",
   "vs-station": (s: SpotView) => s.villainStyle === "station",
 } as const satisfies Record<string, (s: SpotView) => boolean>;
 
 export type PredicateId = keyof typeof PREDICATES;
-export const isPredicateId = (x: string): x is PredicateId => Object.hasOwn(PREDICATES, x);

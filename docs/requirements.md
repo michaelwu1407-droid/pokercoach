@@ -29,31 +29,30 @@ All deterministic code.
 2. **Evaluator.** Hand ranking, equity against a range, pot odds, and preflop charts for opening, facing limpers, a raise, a re-raise and a 4-bet.
 3. **Opponents.** Four styles (nit, regular, maniac, calling station). Each table seats five random styles, each player with their own thresholds. The table changes every 25 hands.
 4. **Grader.** Infers the opponent's range from their known strategy, prices every option you could have clicked, and grades your choice by EV lost.
-5. **Coach.** Turns a grade into one feedback card, and decides whether to pause play.
-6. **Learner model.** Mastery per concept, spaced review, saved mistakes for drills.
+5. **Coach.** Turns a grade into one feedback card: a one-line summary and a "More detail" section.
+6. **Learner model.** A log of graded decisions for progress, and saved mistakes that return as practice until answered right.
 7. **Measurement.** EV lost per decision by week, and a record per skill, weakest first.
 
 ## Core data shapes
 
 - `HandEvent`. `Start | Fold | Check | Call | Bet | Raise`. `Start` carries the table and the shuffled deck, so blinds, deals and payouts are derived. The hand is `HandEvent[]`.
 - `Opponents`. Seat to `{ name, style }`. Stored on each hand, so drills replay against the same players.
-- `Grade`. Graded with a chart or EV basis, or ungraded with a reason. The EV basis carries equity, pot odds, fold share, equity when called, and the opponent's range mix.
+- `Grade`. Graded with a chart or EV basis, or ungraded with a reason. The EV basis carries equity, pot odds, each option's value with its fold share and chance to win when called, and the opponent's range mix.
 - `Feedback`. Context, headline, up to three stats, range mix, key point, opponent read, details.
-- `CoachState`. `idle | feedback(paused?)`.
-- `Mastery` and `SavedSpot` for spaced drills.
+- `Learner`. A decision log and the `SavedSpot`s due for practice.
 
 ## The core loop
 
 1. You play a hand at a table of five unknown players.
 2. You decide. Nothing hints at the answer first.
-3. A feedback card appears for that decision. Play pauses only if it cost 2bb or more or broke a preflop chart, and at most once per hand.
-4. The card shows what they likely had, the numbers that decided it, one takeaway, and who the opponent really is.
-5. After the hand, a short review lists your graded decisions. The result is shown apart from the grades.
-6. Mistakes return as practice a few minutes later, mixed with other concepts.
+3. A feedback card appears beside the table while the others act: a verdict and one line, with "More detail" for the numbers, what they likely had, one key point, and who the opponent really is.
+4. On your next turn the card folds to a one-line recap. Play never pauses.
+5. When the hand ends, every decision of the hand is listed and each can be reopened.
+6. Mistakes return as practice a few minutes later, mixed with other concepts, until you get them right.
 
 ## Risks
 
-- **Grades are exact against these bots, approximate for poker in general.** Heads-up flop and turn decisions look one betting round ahead, then check down. Multiway decisions look one action ahead. Each card says so under "How this was worked out".
+- **Grades are exact against these bots, approximate for poker in general.** Heads-up flop and turn decisions look one betting round ahead over every next card, then check down. Multiway decisions look one action ahead. Each card says so under "How this was worked out".
 - **Bot quality.** Weak bots teach exploiting weak bots. Styles have named leaks, and the grader exposed one already (decision 4).
 - **Scope.** Six-max cash only until the loop is proven.
 
@@ -66,7 +65,8 @@ All deterministic code.
 | Opponents | Done | Random styles per table, individual thresholds, verified by test. |
 | Grader | Done | Every decision is graded: preflop by situation chart, postflop by EV against one or several opponents. Grades proven independent of undealt cards. Recommendations are always a button on screen. |
 | Coach | Done | Every card in a 150-hand session passes the number-grounding check and has a key point. |
-| Drills | Done | Browser test fast-forwards 5 minutes and drills come due. |
+| Drills | Done | Unit tests cover save once, due after two minutes, retire on a right answer. Browser test fast-forwards and drills come due. |
+| Speed | Done | Grading runs in a worker: heads-up flop about 0.6s, turn about 0.3s, the table never freezes. |
 | Measurement | Needs four weeks of play | Progress tab shows EV lost per decision by week and the biggest leaks. |
 
 Known approximations, each shown on its card: heads-up decisions look one betting round ahead and then check down, and against several opponents each one answers a bet as if deciding alone.
@@ -75,6 +75,6 @@ Known approximations, each shown on its card: heads-up decisions look one bettin
 
 - No-Limit Hold'em, six-max cash, 100bb.
 - Web, desktop and phone.
-- Play pauses on losses of 2bb or more.
+- Opponents act at 450ms per action; Space skips ahead.
 - Preflop charts are approximate defaults written for this app.
-- Keyboard: F fold, C check or call, R and 2 to 3 for sizes, Space to continue.
+- Keyboard: F fold, C check or call, R to raise (R or Enter again to confirm, arrows to adjust, Escape to go back), Space for next.

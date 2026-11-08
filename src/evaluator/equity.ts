@@ -9,11 +9,11 @@ export interface EquityResult {
   readonly trials: number;
 }
 
-const showdownShare = (hero: Combo, villain: Combo, board: readonly Card[]): number => {
-  const h = evaluate([...hero, ...board]);
-  const v = evaluate([...villain, ...board]);
-  return h > v ? 1 : h === v ? 0.5 : 0;
-};
+/** Hero's pot share from two hand scores: 1 for a win, a half for a tie, 0 for a loss. */
+export const showdownShare = (hero: number, villain: number): number => (hero > villain ? 1 : hero === villain ? 0.5 : 0);
+
+const shareOn = (hero: Combo, villain: Combo, board: readonly Card[]) =>
+  showdownShare(evaluate([...hero, ...board]), evaluate([...villain, ...board]));
 
 function* runouts(deck: readonly Card[], need: number, from = 0, acc: Card[] = []): Generator<Card[]> {
   if (need === 0) return yield acc;
@@ -27,7 +27,7 @@ export function equityVsCombo(hero: Combo, villain: Combo, board: readonly Card[
   let total = 0;
   let n = 0;
   for (const run of runouts(deck, 5 - board.length)) {
-    total += showdownShare(hero, villain, [...board, ...run]);
+    total += shareOn(hero, villain, [...board, ...run]);
     n++;
   }
   return total / n;
@@ -76,7 +76,7 @@ export function equityVsRange(hero: Combo, range: readonly WeightedCombo[], boar
       const c = FULL_DECK[Math.floor(rng() * 52)]!;
       if (!taken.has(c)) (taken.add(c), run.push(c));
     }
-    sum += showdownShare(hero, villain, run);
+    sum += shareOn(hero, villain, run);
   }
   return { equity: sum / samples, method: "sampled", trials: samples };
 }

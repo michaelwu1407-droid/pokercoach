@@ -1,11 +1,11 @@
-import { mulberry32, shuffled } from "../cards/card";
+import { FULL_DECK, mulberry32, shuffled } from "../cards/card";
 import { apply, legalActions, start } from "./reduce";
 import type { HandEvent, HandState, PlayerAction, Start } from "./types";
 
 export function randomStart(rng: () => number): Start {
   const n = 2 + Math.floor(rng() * 5);
   const seats = Array.from({ length: n }, (_, i) => ({ id: `p${i}`, stack: 1 + Math.floor(rng() * 3) * 1000 + Math.floor(rng() * 1500) }));
-  return { type: "start", config: { seats, smallBlind: 50, bigBlind: 100, button: Math.floor(rng() * n) }, deck: shuffled(rng) };
+  return { type: "start", config: { seats, smallBlind: 50, bigBlind: 100, button: Math.floor(rng() * n) }, deck: shuffled(rng, FULL_DECK) };
 }
 
 export function randomAction(st: HandState, rng: () => number): PlayerAction {

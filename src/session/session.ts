@@ -1,4 +1,4 @@
-import { mulberry32, shuffled } from "../cards/card";
+import { FULL_DECK, mulberry32, shuffled } from "../cards/card";
 import { type Opponents, randomOpponents, stylesOf } from "../bots/opponents";
 import { decide } from "../bots/policy";
 import { apply, legalActions, reduce } from "../engine/reduce";
@@ -19,7 +19,6 @@ export interface Hand {
   readonly seed: number;
   readonly opponents: Opponents;
   readonly events: readonly HandEvent[];
-  readonly grades: readonly Grade[];
 }
 
 export const state = (h: Hand): HandState => reduce(h.events);
@@ -30,8 +29,8 @@ export const newTable = (seed: number): Opponents => randomOpponents(mulberry32(
 export function newHand(seed: number, handNo: number, opponents: Opponents): Hand {
   const rng = mulberry32(seed);
   const seats = Array.from({ length: 6 }, (_, i) => ({ id: i === HERO ? "You" : opponents[i]!.name, stack: STACK_BB * BIG_BLIND }));
-  const events: HandEvent[] = [{ type: "start", config: { seats, smallBlind: BIG_BLIND / 2, bigBlind: BIG_BLIND, button: handNo % 6 }, deck: shuffled(rng) }];
-  return runBots({ seed, opponents, events, grades: [] });
+  const events: HandEvent[] = [{ type: "start", config: { seats, smallBlind: BIG_BLIND / 2, bigBlind: BIG_BLIND, button: handNo % 6 }, deck: shuffled(rng, FULL_DECK) }];
+  return runBots({ seed, opponents, events });
 }
 
 /** Plays bot seats until the hero must act or the hand ends. Bot randomness derives from the seed. */
@@ -61,10 +60,16 @@ export interface HeroResult {
   readonly before: Hand;
 }
 
+/** Your action, then the opponents until it is your turn again or the hand ends. Grading is separate. */
+export const advance = (h: Hand, action: PlayerAction): Hand => runBots({ ...h, events: [...h.events, action] });
+
+/** Grades your decision in the hand as it stood. Pure, so it can run in a worker. */
+export function gradeDecision(before: Hand, action: PlayerAction): Grade {
+  return grade({ events: before.events, state: reduce(before.events), action, styles: stylesOf(before.opponents) });
+}
+
 export function heroAct(h: Hand, action: PlayerAction, concepts: readonly Concept[]): HeroResult {
-  const st = reduce(h.events);
-  const g = grade({ events: h.events, state: st, action, styles: stylesOf(h.opponents) });
-  const credited = g.graded ? conceptsAt(st, h.opponents, concepts) : [];
-  const next = runBots({ ...h, events: [...h.events, action], grades: [...h.grades, g] });
-  return { hand: next, grade: g, concepts: credited, before: h };
+  const g = gradeDecision(h, action);
+  const credited = g.graded ? conceptsAt(reduce(h.events), h.opponents, concepts) : [];
+  return { hand: advance(h, action), grade: g, concepts: credited, before: h };
 }

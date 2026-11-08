@@ -1,20 +1,13 @@
-import { type Card, FULL_DECK, mulberry32 } from "../cards/card";
-import { aggressiveTo, moveDist, toAction } from "../bots/policy";
-import { NEXT_CARDS, nextRoundValue } from "./lookahead";
 import type { Style } from "../bots/styles";
-import { apply, legalActions, potSize } from "../engine/reduce";
+import { legalActions } from "../engine/reduce";
 import type { HandEvent, HandState, PlayerAction, SeatIndex } from "../engine/types";
-import { evaluate } from "../evaluator/handRank";
-import { equityVsCombo, equityVsRange } from "../evaluator/equity";
-import { chartMove, type ChartMove, readPreflop, RESPONSE_CHART_SOURCE } from "../evaluator/responseCharts";
-import { ALL_CLASSES, classOf, type Combo, combosOf, rangeCombos, type WeightedCombo } from "../evaluator/ranges";
-import { rangeMix } from "./rangeMix";
-import { sizeOptions } from "./sizes";
-import { candidates, isDeepShove } from "./options";
+import { equityVsRange } from "../evaluator/equity";
+import { ALL_CLASSES, combosOf } from "../evaluator/ranges";
+import { gradeChart } from "./chart";
+import { gradeHeadsUp } from "./headsUp";
 import { equityAgainst, gradeMultiway } from "./multiway";
 import { drawOf } from "./outs";
-import { type ActionValue, type Grade, type GradeCore, type Win, verdictForChoice } from "./types";
-import { effectiveSize, villainRange } from "./villainRange";
+import type { Facing, Graded, Grade, GradeCore, Win } from "./types";
 
 export interface DecisionContext {
   /** Every event before the decision. Reducing them gives `state`. */
@@ -24,206 +17,59 @@ export interface DecisionContext {
   readonly styles: Readonly<Record<SeatIndex, Style>>;
 }
 
-const FLOP_RUNOUTS = 120;
-
-function comboEquity(hero: Combo, villain: Combo, board: readonly Card[], seed: number): number {
-  if (board.length >= 4) return equityVsCombo(hero, villain, board);
-  const rng = mulberry32(seed);
-  const deck = FULL_DECK.filter((c) => !hero.includes(c) && !villain.includes(c) && !board.includes(c));
-  let sum = 0;
-  for (let t = 0; t < FLOP_RUNOUTS; t++) {
-    const i = Math.floor(rng() * deck.length);
-    let j = Math.floor(rng() * (deck.length - 1));
-    if (j >= i) j++;
-    const run = [...board, deck[i]!, deck[j]!];
-    const h = evaluate([...hero, ...run]);
-    const v = evaluate([...villain, ...run]);
-    sum += h > v ? 1 : h === v ? 0.5 : 0;
-  }
-  return sum / FLOP_RUNOUTS;
-}
-
-const share = (set: ReadonlySet<string>) => rangeCombos(set).length / 1326;
-
-/** Every preflop decision is graded against the chart for its situation. */
-function gradeChart(ctx: DecisionContext): GradeCore {
-  const { state: st, action } = ctx;
-  const seat = action.seat;
-  const read = readPreflop(st, seat);
-  const handClass = classOf(st.seats[seat]!.hole);
-  const legal = legalActions(st)!;
-  let bestMove = chartMove(read.chart, handClass);
-  if (bestMove === "raise" && !legal.raise) bestMove = "call";
-  if (bestMove === "call" && legal.canCheck && read.spot !== "vs-limp") bestMove = "fold";
-  const best: PlayerAction = bestMove === "raise" ? { type: legal.raise!.kind, seat, to: aggressiveTo(st) }
-    : bestMove === "call" ? (legal.canCheck ? { type: "check", seat } : { type: "call", seat })
-    : legal.canCheck ? { type: "check", seat } : { type: "fold", seat };
-  const chose: ChartMove = action.type === "raise" || action.type === "bet" ? "raise" : action.type === "call" ? "call" : "fold";
-  // Raising a calling hand or calling a raising hand is a smaller error than playing a folding hand.
-  const borderline = chose === "raise" && bestMove === "fold" && read.nearby.has(handClass);
-  const verdict = chose === bestMove ? "good" : (chose !== "fold" && bestMove !== "fold") || borderline ? "small" : "mistake";
-  return {
-    graded: true, street: st.street, seat, action, best, evLossBB: null, verdict,
-    basis: {
-      kind: "chart", spot: read.spot, source: RESPONSE_CHART_SOURCE, position: read.position, opener: read.opener, openerSeat: read.openerSeat,
-      handClass, bestMove, borderline, raiseShare: share(read.chart.raise), callShare: share(read.chart.call),
-      continueShare: share(new Set([...read.chart.raise, ...read.chart.call])),
-      behind: st.phase === "betting" ? st.pending.filter((p) => p !== seat).length : 0,
-    },
-  };
-}
-
-/** Combos the lookahead plays out. The rest of the range keeps the checked-down value. */
-const LOOKAHEAD_COMBOS = 250;
-
-interface EvModel {
-  readonly st: HandState;
-  readonly hero: SeatIndex;
-  readonly villain: SeatIndex;
-  readonly style: Style;
-  readonly range: readonly WeightedCombo[];
-  /**
-   * Hero's expected gain per combo from a state where the graded street's betting has just ended.
-   * `reach` is how likely each combo is to get there, so the hero's later choices answer that range.
-   */
-  readonly cont: (closed: HandState, reach: Float64Array) => Float64Array;
-}
-
-function evModel(st: HandState, hero: SeatIndex, villain: SeatIndex, style: Style, range: readonly WeightedCombo[], eq: Float64Array, seed: number): EvModel {
-  const checkDown = (closed: HandState) => eq.map((e) => e * potSize(closed));
-  if (st.street === "river") return { st, hero, villain, style, range, cont: checkDown };
-  // The heaviest combos covering almost all of the range are played out. The tail keeps check-down values.
-  const order = range.map((_, i) => i).sort((a, b) => range[b]!.weight - range[a]!.weight);
-  const chosen: number[] = [];
-  let covered = 0;
-  for (const i of order) {
-    if (chosen.length >= LOOKAHEAD_COMBOS || covered >= 0.995) break;
-    chosen.push(i);
-    covered += range[i]!.weight;
-  }
-  const setup = { hero, villain, style, heroHole: st.seats[hero]!.hole, board: st.board, combos: chosen.map((i) => range[i]!.combo), seed };
-  const cont = (closed: HandState, reach: Float64Array) => {
-    const base = checkDown(closed);
-    if (closed.phase !== "betting") return base;
-    const ahead = nextRoundValue(setup, closed, Float64Array.from(chosen, (i) => reach[i]!));
-    chosen.forEach((i, k) => (base[i] = ahead[k]!));
-    return base;
-  };
-  return { st, hero, villain, style, range, cont };
-}
-
-/** Hero's expected chip gain from the decision, over the opponent's range. */
-function valueOf(m: EvModel, action: PlayerAction): number {
-  if (action.type === "fold") return 0;
-  const { st, hero, villain, style, range } = m;
-  const n = range.length;
-  const weights = Float64Array.from(range, (w) => w.weight);
-  const stack0 = st.seats[hero]!.stack;
-  const gainAt = (closed: HandState) => closed.seats[hero]!.stack - stack0;
-  const after = apply(st, action);
-  if (after.phase !== "betting" || after.street !== st.street || after.toAct !== villain) {
-    const c = m.cont(after, weights);
-    return range.reduce((s, w, i) => s + w.weight * (gainAt(after) + c[i]!), 0);
-  }
-  const fold = new Float64Array(n), passive = new Float64Array(n), aggressive = new Float64Array(n);
-  range.forEach((w, i) => {
-    const d = moveDist(after, villain, w.combo, style);
-    fold[i] = d.fold, passive[i] = d.passive, aggressive[i] = d.aggressive;
-  });
-  const added = stack0 - after.seats[hero]!.stack;
-  let value = range.reduce((s, w, i) => s + w.weight * fold[i]! * (potSize(after) - added), 0);
-  const called = apply(after, toAction(after, "passive"));
-  const cCalled = m.cont(called, weights.map((w, i) => w * passive[i]!));
-  value += range.reduce((s, w, i) => s + w.weight * passive[i]! * (gainAt(called) + cCalled[i]!), 0);
-  if (legalActions(after)!.raise && aggressive.some((x) => x > 0)) {
-    // Facing their raise you either fold or call. Calling leads into the next round like any other call.
-    const raised = apply(after, toAction(after, "aggressive"));
-    const callIt = raised.phase === "betting" && raised.toAct === hero ? apply(raised, { type: "call", seat: hero }) : raised;
-    const cRaise = m.cont(callIt, weights.map((w, i) => w * aggressive[i]!));
-    const raiseCall = range.reduce((s, w, i) => s + w.weight * aggressive[i]! * (gainAt(callIt) + cRaise[i]!), 0);
-    const raiseFold = range.reduce((s, w, i) => s + w.weight * aggressive[i]! * -added, 0);
-    value += Math.max(raiseCall, raiseFold);
-  }
-  return value;
-}
-
-function gradeEv(ctx: DecisionContext): GradeCore {
-  const { state: st, action, events, styles } = ctx;
-  const hero = action.seat;
-  const live = st.seats.map((s, i) => i).filter((i) => !st.seats[i]!.folded);
-  const missing = live.find((i) => i !== hero && !styles[i]);
-  if (missing !== undefined) return { graded: false, street: st.street, seat: hero, action, reason: "Opponent strategy unknown." };
-  if (live.length > 2) return gradeMultiway(events, st, action, styles, live.filter((i) => i !== hero));
-  const villain = live.find((i) => i !== hero)!;
-  const style = styles[villain];
-  if (!style) return { graded: false, street: st.street, seat: hero, action, reason: "Opponent strategy unknown." };
-  const holeHero = st.seats[hero]!.hole;
-  const range = villainRange(events, villain, style, [...holeHero, ...st.board]);
-  const eqArr = Float64Array.from(range.map((w, k) => comboEquity(holeHero, w.combo, st.board, 17 + k)));
-  const eq = new Map(range.map((w, k) => [w, eqArr[k]!] as const));
-  const equity = range.reduce((s, w) => s + w.weight * eq.get(w)!, 0);
-  const bb = st.config.bigBlind;
-  const model = evModel(st, hero, villain, style, range, eqArr, 101 + events.length);
-  const values: ActionValue[] = candidates(st, action).map((a) => ({ action: a, evBB: valueOf(model, a) / bb }));
-  // A deep all-in is priced but never recommended. The one-step lookahead undervalues smaller bets,
-  // which keep later streets to bet on, so a deep shove would look better than it is.
-  const recommendable = values.filter((v) => !isDeepShove(st, v.action));
-  const best = recommendable.reduce((a, b) => (b.evBB > a.evBB ? b : a));
-  const chosen = values[0]!;
-  const legal = legalActions(st)!;
-  const potOddsNeeded = legal.callAmount > 0 ? legal.callAmount / (potSize(st) + legal.callAmount) : null;
-  const approximations = [
-    ...(st.street !== "river" ? [`The next betting round is played out over ${NEXT_CARDS} possible next cards, with you choosing your best option and them following their strategy. After that round, the rest of the hand is assumed to be checked through.`] : []),
-    ...(st.street === "flop" ? [`On the flop, your chance to win is estimated from ${FLOP_RUNOUTS} possible turn and river cards for each hand they could have.`] : []),
-    ...(legal.raise ? ["If you bet and get raised, you either fold or call. Re-raising is not considered.", "An all-in for more than twice the pot is priced but never recommended, because this method undervalues smaller bets that leave room to bet again later."] : []),
-  ];
-  const evLossBB = Math.max(0, best.evBB - chosen.evBB);
-  let foldToBet: number | null = null;
-  let equityWhenCalled: number | null = null;
-  if (legal.raise) {
-    const after = apply(st, { type: legal.raise.kind, seat: hero, to: sizeOptions(st)[0]!.to });
-    if (after.phase === "betting" && after.toAct === villain) {
-      let fold = 0, cont = 0, contEq = 0;
-      for (const w of range) {
-        const d = moveDist(after, villain, w.combo, style);
-        fold += w.weight * d.fold;
-        cont += w.weight * (1 - d.fold);
-        contEq += w.weight * (1 - d.fold) * eq.get(w)!;
-      }
-      foldToBet = fold;
-      equityWhenCalled = cont > 0 ? contEq / cont : null;
-    }
-  }
-  return {
-    graded: true, street: st.street, seat: hero, action, best: best.action, evLossBB, verdict: verdictForChoice(action, best.action, evLossBB),
-    basis: { kind: "ev", villain, opponents: 1, mix: rangeMix(range, st.board), foldToBet, equityWhenCalled, values, equity, potOddsNeeded, rangeSize: effectiveSize(range), approximations },
-  };
-}
-
 const ALL_HANDS = ALL_CLASSES.flatMap((c) => combosOf(c)).map((combo) => ({ combo, weight: 1 }));
 
 /**
  * Your chance to win at the decision. After the flop it is against everyone still in. Preflop it is
  * against the players who have put money in, or one random hand when nobody has.
  */
-function winAt(ctx: DecisionContext, core: Extract<GradeCore, { graded: true }>): Win {
+function winAt(ctx: DecisionContext, core: Omit<Graded, "win" | "draw" | "facing" | "allInTo">): Win {
   const { state: st, action, events, styles } = ctx;
-  if (core.basis.kind === "ev") return { chance: core.basis.equity, against: core.basis.opponents };
   const hero = action.seat;
+  if (core.basis.kind === "ev") {
+    const live = st.seats.flatMap((s, i) => (i !== hero && !s.folded ? [i] : []));
+    return { chance: core.basis.equity, against: live };
+  }
   const inPot = [...new Set(st.history.filter((a) => (a.type === "call" || a.type === "raise") && a.seat !== hero).map((a) => a.seat))]
     .filter((s) => !st.seats[s]!.folded && styles[s]);
   if (inPot.length === 0) {
     const r = equityVsRange(st.seats[hero]!.hole, ALL_HANDS, [], { samples: 4000, seed: 7 + events.length });
-    return { chance: r.equity, against: 0 };
+    return { chance: r.equity, against: [] };
   }
-  return { chance: equityAgainst(events, st, hero, styles, inPot), against: inPot.length };
+  return { chance: equityAgainst(events, st, hero, styles, inPot), against: inPot };
+}
+
+/** The bet you were answering, and who made it. Null when there was nothing to call. */
+function facingAt(st: HandState): Facing | null {
+  const legal = legalActions(st);
+  if (st.phase !== "betting" || !legal || legal.callAmount === 0) return null;
+  const last = [...st.history].reverse().find((a) => (a.type === "bet" || a.type === "raise") && a.to === st.currentBet);
+  return { to: st.currentBet, by: last ? last.seat : null };
+}
+
+function gradeCore(ctx: DecisionContext): GradeCore {
+  const { state: st, action, events, styles } = ctx;
+  if (st.street === "preflop") return gradeChart(st, action);
+  const hero = action.seat;
+  const villains = st.seats.map((_, i) => i).filter((i) => i !== hero && !st.seats[i]!.folded);
+  if (villains.some((v) => !styles[v])) return { graded: false, street: st.street, seat: hero, action, reason: "Opponent strategy unknown." };
+  if (villains.length > 1) return gradeMultiway(events, st, action, styles, villains);
+  return gradeHeadsUp(events, st, action, villains[0]!, styles[villains[0]!]!);
 }
 
 /** Grades one hero decision. Never looks at how the hand turned out. */
 export function grade(ctx: DecisionContext): Grade {
   const { state: st, action } = ctx;
-  if (st.phase !== "betting" || legalActions(st)?.seat !== action.seat) throw new Error("grade needs the state the action was taken in");
-  const core = st.street === "preflop" ? gradeChart(ctx) : gradeEv(ctx);
+  const legal = legalActions(st);
+  if (!legal || legal.seat !== action.seat) throw new Error("grade needs the state the action was taken in");
+  const core = gradeCore(ctx);
   if (!core.graded) return core;
-  return { ...core, win: winAt(ctx, core), draw: drawOf(st.seats[action.seat]!.hole, st.board) };
+  const me = st.seats[action.seat]!;
+  return {
+    ...core,
+    win: winAt(ctx, core),
+    draw: drawOf(me.hole, st.board),
+    facing: facingAt(st),
+    allInTo: me.street + me.stack,
+  };
 }

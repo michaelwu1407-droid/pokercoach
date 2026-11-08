@@ -31,39 +31,39 @@ export function FeedbackCard({ f }: { f: Feedback }) {
       <details className="more" data-testid="more" open={open} onToggle={(e) => remember((e.target as HTMLDetailsElement).open)}>
         <summary>More detail</summary>
         <div className="more-body">
-      {f.stats.length > 0 && (
-        <div className="stats">
-          {f.stats.map((s) => (
-            <div key={s.label} className="stat">
-              <div className="stat-value">{s.value}</div>
-              <div className="stat-label">{s.label}</div>
+          {f.stats.length > 0 && (
+            <div className="stats">
+              {f.stats.map((s) => (
+                <div key={s.label} className="stat">
+                  <div className="stat-value">{s.value}</div>
+                  <div className="stat-label">{s.label}</div>
+                </div>
+              ))}
             </div>
-          ))}
-        </div>
-      )}
-      {f.mix && (
-        <div className="mix" data-testid="range-mix">
-          <div className="micro-label">What they likely have</div>
-          <div className="mix-bar">
-            {f.mix.map((m, i) => m.share > 0.005 && <span key={m.label} className={MIX_CLASS[i]} style={{ width: `${m.share * 100}%` }} />)}
-          </div>
-          <ul className="mix-legend">
-            {f.mix.map((m, i) => m.share >= 0.005 && (
-              <li key={m.label}><i className={MIX_CLASS[i]} />{m.label} {Math.round(m.share * 100)}%</li>
-            ))}
-          </ul>
-        </div>
-      )}
-      <p className="key-point" data-testid="key-point">{f.keyPoint}</p>
-      {f.draw && <p className="draw-line" data-testid="draw-line">{f.draw}</p>}
-      {f.read && <p className="read" data-testid="read">{f.read}</p>}
-      {f.details.length > 0 && (
-        <details className="details">
-          <summary>How this was worked out</summary>
-          {f.details.map((d) => <p key={d}>{d}</p>)}
-          {f.caveats.map((c) => <p key={c} className="muted">{c}</p>)}
-        </details>
-      )}
+          )}
+          {f.mix && (
+            <div className="mix" data-testid="range-mix">
+              <div className="micro-label">What they likely have</div>
+              <div className="mix-bar">
+                {f.mix.map((m, i) => m.share > 0.005 && <span key={m.label} className={MIX_CLASS[i]} style={{ width: `${m.share * 100}%` }} />)}
+              </div>
+              <ul className="mix-legend">
+                {f.mix.map((m, i) => m.share >= 0.005 && (
+                  <li key={m.label}><i className={MIX_CLASS[i]} />{m.label} {Math.round(m.share * 100)}%</li>
+                ))}
+              </ul>
+            </div>
+          )}
+          <p className="key-point" data-testid="key-point">{f.keyPoint}</p>
+          {f.draw && <p className="draw-line" data-testid="draw-line">{f.draw}</p>}
+          {f.read && <p className="read" data-testid="read">{f.read}</p>}
+          {f.details.length > 0 && (
+            <details className="details">
+              <summary>How this was worked out</summary>
+              {f.details.map((d) => <p key={d}>{d}</p>)}
+              {f.caveats.map((c) => <p key={c} className="muted">{c}</p>)}
+            </details>
+          )}
         </div>
       </details>
     </div>

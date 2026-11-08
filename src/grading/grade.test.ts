@@ -59,7 +59,8 @@ describe("postflop EV grading", () => {
     expect(g.best.type).not.toBe("fold");
     const call = g.basis.values.find((v) => v.action.type === "call")!;
     expect(call.evBB).toBeCloseTo(3, 9);
-    expect(g.basis.approximations).not.toContain("Later streets are treated as checked down, so future bets and implied odds are ignored.");
+    // The river has no next card, so the grade must not claim a lookahead.
+    expect(g.basis.approximations.join(" ")).not.toMatch(/next card/);
   });
 
   it("folding air to a nit's river bet is right", () => {

@@ -9,7 +9,7 @@ npm install
 npm run dev
 ```
 
-Open the address it prints. A short guide opens on your first visit (press ? to see it again). Keys: F fold, C check or call, R raise, Space next. Progress is saved in your browser.
+Open the address it prints. A short guide opens on your first visit (press ? to see it again). Keys: F fold, C check or call, R raise (R or Enter to confirm, arrows adjust), Space next. Progress is saved in your browser.
 
 ## Check it
 

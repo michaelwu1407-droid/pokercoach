@@ -25,6 +25,9 @@ const score = (category: number, kickers: readonly number[]): HandScore => {
 
 export const categoryOf = (s: HandScore): Category => CATEGORIES[Math.floor(s / 16 ** 5)]!;
 
+/** The ranks a score was decided on, most important first: for a full house, the trips then the pair. */
+export const scoreRanks = (s: HandScore): number[] => [4, 3, 2, 1, 0].map((i) => Math.floor(s / 16 ** i) % 16);
+
 /** Highest rank of a 5-long run in a rank bitmask, or -1. Ace plays low in the wheel. */
 function straightHigh(mask: number): number {
   const withAceLow = (mask << 1) | ((mask >> 12) & 1);

@@ -1,4 +1,6 @@
-import { type Card, FULL_DECK, rankOf, suitOf } from "../cards/card";
+import { type Card, FULL_DECK, suitOf } from "../cards/card";
+import { CATEGORIES, categoryOf, evaluate } from "../evaluator/handRank";
+import { hasStraight, rankMask } from "../evaluator/structure";
 
 export interface Draw {
   readonly name: "flush draw" | "straight draw" | "flush and straight draw";
@@ -10,24 +12,18 @@ export interface Draw {
   readonly estimate: number;
 }
 
-const rankMask = (cards: readonly Card[]) => cards.reduce((m, c) => m | (1 << rankOf(c)), 0);
-
-function hasStraight(mask: number): boolean {
-  const m = (mask << 1) | ((mask >> 12) & 1);
-  for (let lo = 0; lo <= 9; lo++) if (((m >> lo) & 0b11111) === 0b11111) return true;
-  return false;
-}
-
 function hasFlush(cards: readonly Card[], hole: readonly Card[]): boolean {
   return [0, 1, 2, 3].some((s) => cards.filter((c) => suitOf(c) === s).length >= 5 && hole.some((c) => suitOf(c) === s));
 }
 
-/** Counts outs to a flush or straight you do not already have. Null when there is no draw. */
+/** Counts outs to a flush or straight that would beat what you already have. Null when there is no draw. */
 export function drawOf(hole: readonly [Card, Card], board: readonly Card[]): Draw | null {
   if (board.length < 3 || board.length > 4) return null;
   const now = [...hole, ...board];
-  const haveFlush = hasFlush(now, hole);
-  const haveStraight = hasStraight(rankMask(now)) && !hasStraight(rankMask(board));
+  // Only draws to a better hand than you already have count: a made flush has no straight outs.
+  const level = CATEGORIES.indexOf(categoryOf(evaluate(now)));
+  const haveFlush = level >= CATEGORIES.indexOf("flush");
+  const haveStraight = level >= CATEGORIES.indexOf("straight");
   let flushOuts = 0, straightOuts = 0, outs = 0;
   for (const c of FULL_DECK) {
     if (now.includes(c)) continue;

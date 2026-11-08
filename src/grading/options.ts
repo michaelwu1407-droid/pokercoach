@@ -1,6 +1,7 @@
 import { legalActions, potSize } from "../engine/reduce";
 import type { HandState, PlayerAction } from "../engine/types";
 import { sizeOptions } from "./sizes";
+import type { ActionValue } from "./types";
 
 /** All-in for more than twice the pot after calling. */
 export function isDeepShove(st: HandState, a: PlayerAction): boolean {
@@ -21,3 +22,17 @@ export function candidates(st: HandState, action: PlayerAction): PlayerAction[] 
   return out.filter((a, i) => out.findIndex((b) => key(b) === key(a)) === i);
 }
 
+
+export const potOddsNeeded = (st: HandState): number | null => {
+  const legal = legalActions(st);
+  return legal && legal.callAmount > 0 ? legal.callAmount / (potSize(st) + legal.callAmount) : null;
+};
+
+/**
+ * The recommended option and what the choice cost. A deep all-in is priced but never recommended,
+ * because the lookahead stops after one more betting round and so undervalues smaller bets.
+ */
+export function pickBest(st: HandState, values: readonly ActionValue[]): { best: ActionValue; evLossBB: number } {
+  const best = values.filter((v) => !isDeepShove(st, v.action)).reduce((a, b) => (b.evBB > a.evBB ? b : a));
+  return { best, evLossBB: Math.max(0, best.evBB - values[0]!.evBB) };
+}

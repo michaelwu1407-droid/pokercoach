@@ -41,16 +41,19 @@ export function start(event: Start): HandState {
   return openRound(base, (bb + 1) % n, config.bigBlind);
 }
 
-function openRound(base: Omit<Betting, "phase" | "toAct" | "currentBet" | "lastRaise" | "pending" | "closedToRaise">,
+/** What every state shares, before or between betting rounds. */
+type RoundBase = Omit<Betting, "phase" | "toAct" | "currentBet" | "lastRaise" | "pending" | "closedToRaise">;
+
+function openRound(base: RoundBase,
   firstSeat: SeatIndex, currentBet: number): HandState {
   const order = seatsFrom(firstSeat, base.seats.length);
   const pending = order.filter((i) => canAct(base.seats[i]!));
   const outstanding = base.seats.some((s) => canAct(s) && s.street < currentBet);
-  if (pending.length < 2 && !outstanding) return closeRound({ ...base, phase: "betting", toAct: -1, currentBet, lastRaise: 0, pending: [], closedToRaise: [] });
+  if (pending.length < 2 && !outstanding) return closeRound(base);
   return { ...base, phase: "betting", toAct: pending[0]!, currentBet, lastRaise: base.config.bigBlind, pending, closedToRaise: [] };
 }
 
-function closeRound(st: Betting): HandState {
+function closeRound(st: RoundBase): HandState {
   const next = NEXT[st.street];
   const live = st.seats.filter(canAct).length;
   if (next === null || live < 2) return showdown({ ...st, board: boardFor(st, "river") });
@@ -59,10 +62,10 @@ function closeRound(st: Betting): HandState {
   return openRound(base, (st.config.button + 1) % seats.length, 0);
 }
 
-function showdown(st: Betting): HandState {
-  const { phase: _p, toAct: _t, currentBet: _c, lastRaise: _l, pending: _pe, closedToRaise: _cl, ...rest } = st;
-  const payouts = settle(st.seats, st.board, st.config.button);
-  return { ...rest, phase: "complete", payouts, showdown: st.seats.filter((s) => !s.folded).length > 1 };
+function showdown(st: RoundBase): HandState {
+  const { config, deck, seats, board, street, history } = st;
+  const payouts = settle(seats, board, config.button);
+  return { config, deck, seats, board, street, history, phase: "complete", payouts, showdown: seats.filter((s) => !s.folded).length > 1 };
 }
 
 export function legalActions(st: HandState): LegalActions | null {
