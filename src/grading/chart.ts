@@ -1,11 +1,15 @@
 import { aggressiveTo } from "../bots/policy";
 import { legalActions } from "../engine/reduce";
 import type { HandState, PlayerAction } from "../engine/types";
-import { chartMove, type ChartMove, readPreflop, RESPONSE_CHART_SOURCE } from "../evaluator/responseCharts";
+import { chartMove, type ChartMove, readPreflop, RESPONSE_CHART_SOURCE, rowOf } from "../evaluator/responseCharts";
+import { RFI } from "../evaluator/preflopCharts";
 import { classOf, rangeCombos } from "../evaluator/ranges";
 import type { GradeCore, Verdict } from "./types";
 
 const share = (set: ReadonlySet<string>) => rangeCombos(set).length / 1326;
+
+/** Open-raise share per seat, rounded to 5% so it is easy to remember. */
+const LADDER = (["UTG", "HJ", "CO", "BTN", "SB"] as const).map((position) => ({ position, roughPct: Math.round(share(RFI[position]!.raise) * 20) * 5 }));
 
 /** A preflop raise this many times the usual size, and at least this deep, is oversized. */
 const OVERSIZE_FACTOR = 3;
@@ -36,13 +40,15 @@ export function gradeChart(st: HandState, action: PlayerAction): GradeCore {
   const verdict: Verdict = chose === bestMove
     ? (oversized ? "mistake" : "good")
     : (chose !== "fold" && bestMove !== "fold") || borderline ? "small" : "mistake";
+  const continueShare = share(new Set([...read.chart.raise, ...read.chart.call]));
   return {
     graded: true, street: st.street, seat, action, best, evLossBB: null, verdict,
     basis: {
       kind: "chart", spot: read.spot, source: RESPONSE_CHART_SOURCE, position: read.position, opener: read.opener,
       openerSeat: read.openerSeat, handClass, bestMove, borderline, oversized,
       raiseShare: share(read.chart.raise), callShare: share(read.chart.call),
-      continueShare: share(new Set([...read.chart.raise, ...read.chart.call])),
+      openerShare: read.opener && RFI[read.opener] ? share(RFI[read.opener]!.raise) : null, ladder: LADDER,
+      continueShare, foldShare: 1 - continueShare, playOneIn: Math.max(1, Math.round(1 / continueShare)), row: rowOf(read.chart, handClass),
       behind: st.phase === "betting" ? st.pending.filter((p) => p !== seat).length : 0,
     },
   };

@@ -41,6 +41,11 @@ export function FeedbackCard({ f }: { f: Feedback }) {
               ))}
             </div>
           )}
+          {f.stats.some((s) => s.hint) && (
+            <ul className="stat-hints" data-testid="stat-hints">
+              {f.stats.map((s) => s.hint && <li key={s.label}><b>{s.label}:</b> {s.hint}</li>)}
+            </ul>
+          )}
           {f.mix && (
             <div className="mix" data-testid="range-mix">
               <div className="micro-label">What they likely have</div>

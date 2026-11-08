@@ -2,6 +2,7 @@ import { prettyClass } from "../cards/card";
 import type { Opponents } from "../bots/opponents";
 import type { PlayerAction } from "../engine/types";
 import { aggressive, type ActionValue, type Graded } from "../grading/types";
+import { handWords, rowEmpty, rowGroup, rowLine } from "./chartWords";
 import { dollars, seatName } from "./words";
 
 export const pct = (x: number) => `${Math.round(x * 100)}%`;
@@ -69,27 +70,58 @@ export function evKeyPoint(g: Graded, describe: (a: PlayerAction) => string): st
 
 const MOVE_WORD = { raise: "a raise", call: "a call", fold: "a fold" } as const;
 
-export function chartKeyPoint(g: Graded, opponents: Opponents, describe: (a: PlayerAction) => string): string {
+const RAISE_VERB = { "rfi": "raise", "vs-limp": "raise", "vs-open": "re-raise", "vs-3bet": "raise again", "vs-4bet": "raise again" } as const;
+
+/** The chart's rule for hands like yours, then where your hand falls: concrete hands, not percentages. */
+export function chartSummary(g: Graded, describe: (a: PlayerAction) => string): string {
   if (g.basis.kind !== "chart") return "";
-  const { spot, position, opener, bestMove, raiseShare, callShare, continueShare, borderline, oversized, behind } = g.basis;
-  const hand = prettyClass(g.basis.handClass);
+  const { spot, position, bestMove, borderline, oversized, row } = g.basis;
+  const hand = handWords(g.basis.handClass);
   if (oversized) return `Right idea, wrong size: ${describe(g.best)}, not ${describe(g.action)}. A raise that big only gets called by hands that beat you.`;
-  const verdict = g.verdict === "good" ? `${hand} is ${MOVE_WORD[bestMove]} here`
-    : borderline && spot === "vs-limp" ? `${hand} is just outside, so this is close. It is a usual raise when nobody has called yet`
-    : borderline ? `${hand} is just outside, so this is close. It becomes a raise from a later seat`
-    : `${hand} should be ${MOVE_WORD[bestMove]} here`;
-  const fold = position === "BB" && spot === "vs-limp" ? "check" : "fold";
+  const move = bestMove === "fold" && position === "BB" && spot === "vs-limp" ? "a check" : MOVE_WORD[bestMove];
+  const verdict = g.verdict === "good" ? `${hand} is ${move} here.`
+    : borderline && spot === "vs-limp" ? `${hand} is just outside, so this is close. It is a usual raise when nobody has called yet.`
+    : borderline ? `${hand} is just outside, so this is close. It becomes a raise from a later seat.`
+    : `${hand} should be ${move} here.`;
+  if (rowEmpty(row) && move === "a fold") {
+    const every = `every ${rowGroup(row).replace(/hands$/, "hand")} is a fold here`;
+    return g.verdict === "good" ? `${hand} is a fold: ${every}.` : `${hand} should be a fold: ${every}.`;
+  }
+  return `${rowLine(row, RAISE_VERB[spot])} ${verdict}`;
+}
+
+const oneIn = (share: number) => `roughly 1 in ${Math.max(1, Math.round(1 / share))}`;
+
+/**
+ * The percentage to know, a rule of thumb for getting it roughly, and what it means for your play.
+ * Three short sentences at most.
+ */
+export function chartKeyPoint(g: Graded, opponents: Opponents): string {
+  if (g.basis.kind !== "chart") return "";
+  const { spot, position, opener, bestMove, behind, raiseShare, callShare, continueShare, openerShare, ladder } = g.basis;
+  const play = `${pct(continueShare)} of hands (${oneIn(continueShare)})`;
+  const foldRest = `fold the other ${pct(g.basis.foldShare)}`;
   const raiser = g.basis.openerSeat !== null ? opponents[g.basis.openerSeat]?.name : undefined;
-  const from = opener ? `${raiser ? `${raiser}, in ` : ""}the ${seatName(opener)} seat` : "an earlier seat";
   const ahead = bestMove === "fold" && g.win.chance >= 0.5 && behind > 0
-    ? ` Being ahead of one random hand is not enough: ${behind} player${behind > 1 ? "s" : ""} still act${behind > 1 ? "" : "s"} after you, and they only keep playing with good hands.`
+    ? ` Being ahead of one random hand is not enough: ${behind} player${behind > 1 ? "s" : ""} still act${behind > 1 ? "" : "s"} after you.`
     : "";
+  const split = callShare > 0.005 && raiseShare > 0.005 ? ` (${pct(raiseShare)} ${spot === "vs-open" ? "re-raise" : "raise again"}, ${pct(callShare)} call)` : "";
   switch (spot) {
-    case "rfi": return `When everyone before you folds and you sit in the ${seatName(position)} seat, raise about ${pct(raiseShare)} of hands and fold the rest. ${verdict}.${ahead}`;
-    case "vs-limp": return `When players have only called the big blind, raise about ${pct(raiseShare)} of hands to take the pot from them and ${fold} the rest. ${verdict}.${ahead}`;
-    case "vs-open": return `Facing a raise from ${from}, re-raise about ${pct(raiseShare)} of hands${callShare > 0 ? `, call about ${pct(callShare)}` : ""}, and fold the rest. ${verdict}.${ahead}`;
-    case "vs-3bet": return `When your raise gets re-raised, raise again with about ${pct(raiseShare)} of hands, call about ${pct(callShare)}, and fold the rest. ${verdict}.`;
-    case "vs-4bet": return `After a raise and a re-raise, only the best ${pct(continueShare)} of hands keep playing. ${verdict}.`;
+    case "rfi": {
+      const rule = ladder.map((l) => `${seatName(l.position)} ${l.roughPct}%`).join(", ");
+      return `Nobody has raised and you are in the ${seatName(position)} seat: raise ${play}, ${foldRest}. Rule of thumb: ${rule}. Fewer players behind you means fewer who can hold a better hand.${ahead}`;
+    }
+    case "vs-limp":
+      return `Players only called the big blind, which usually means a medium hand: raise your best ${play} to take the pot, and ${foldRest}. Rule of thumb: a bit tighter than if nobody had called.${ahead}`;
+    case "vs-open": {
+      const who = `${raiser ?? "The raiser"}${opener ? ` (${seatName(opener)} seat)` : ""}`;
+      const theirs = openerShare !== null ? `${who} raises with about ${pct(openerShare)} of hands, so you` : "You";
+      return `${theirs} play only about ${pct(continueShare)}${split}. Rule of thumb: against a raise, play only hands that beat most of theirs. Everything else folds, even hands you would raise yourself.${ahead}`;
+    }
+    case "vs-3bet":
+      return `Your raise was re-raised: keep playing with only ${play}${split}. Rule of thumb: every extra raise means a stronger hand, so the list of hands worth playing shrinks fast.`;
+    case "vs-4bet":
+      return `After a raise and a re-raise, only ${play} keep playing, the very best pairs and Ace-King. Everything else folds.`;
   }
 }
 

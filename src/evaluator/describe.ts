@@ -1,8 +1,8 @@
 import { type Card, rankOf, suitOf } from "../cards/card";
 import { categoryOf, evaluate, type HandScore, scoreRanks } from "./handRank";
 
-const NAMES = ["Two", "Three", "Four", "Five", "Six", "Seven", "Eight", "Nine", "Ten", "Jack", "Queen", "King", "Ace"];
-const PLURAL = ["Twos", "Threes", "Fours", "Fives", "Sixes", "Sevens", "Eights", "Nines", "Tens", "Jacks", "Queens", "Kings", "Aces"];
+export const NAMES = ["Two", "Three", "Four", "Five", "Six", "Seven", "Eight", "Nine", "Ten", "Jack", "Queen", "King", "Ace"];
+export const PLURAL = ["Twos", "Threes", "Fours", "Fives", "Sixes", "Sevens", "Eights", "Nines", "Tens", "Jacks", "Queens", "Kings", "Aces"];
 
 
 /** Plain-English name of what the hole cards make with the board. "Pair of Kings", "Ace-King suited". */

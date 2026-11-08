@@ -1,6 +1,6 @@
 import type { PlayerAction, SeatIndex, Street } from "../engine/types";
 import type { Position } from "../evaluator/preflopCharts";
-import type { ChartMove, PreflopSpot } from "../evaluator/responseCharts";
+import type { ChartMove, ChartRow, PreflopSpot } from "../evaluator/responseCharts";
 import type { MixShare } from "./rangeMix";
 import type { Draw } from "./outs";
 
@@ -35,8 +35,18 @@ export type Basis =
       readonly callShare: number;
       /** raiseShare + callShare. */
       readonly continueShare: number;
+      /** 1 - continueShare: the hands to fold. */
+      readonly foldShare: number;
       /** Players still to act after you this round. */
       readonly behind: number;
+      /** The chart's line for hands like yours, so the lesson can name real hands. */
+      readonly row: ChartRow;
+      /** About one hand in this many is played here: 1 / continueShare, rounded. */
+      readonly playOneIn: number;
+      /** Share of hands the first raiser opens from their seat, when someone raised. */
+      readonly openerShare: number | null;
+      /** The rule of thumb: how many hands to open from each seat, rounded to 5%. */
+      readonly ladder: readonly { readonly position: Position; readonly roughPct: number }[];
     }
   | {
       readonly kind: "ev";

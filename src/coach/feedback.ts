@@ -3,8 +3,15 @@ import type { Opponents } from "../bots/opponents";
 import type { PlayerAction, Street } from "../engine/types";
 import type { MixShare } from "../grading/rangeMix";
 import { aggressive, type Grade, type Graded, type Verdict, type Win } from "../grading/types";
-import { chartKeyPoint, drawLine, evKeyPoint, pct, quotedBet } from "./reasons";
+import { chartKeyPoint, chartSummary, drawLine, evKeyPoint, pct, quotedBet } from "./reasons";
 import { allInLabel, dollars, money, seatName, signedMoney } from "./words";
+
+export interface Stat {
+  readonly label: string;
+  readonly value: string;
+  /** What the number means, in one plain line. Left out when the label says it all. */
+  readonly hint?: string;
+}
 
 export interface Feedback {
   readonly tone: Verdict | "ungraded";
@@ -14,7 +21,7 @@ export interface Feedback {
   /** One short line with the number that decided it. Everything else sits behind "More detail". */
   readonly summary: string;
   /** At most three numbers, the ones the decision turned on. Chance to win comes first. */
-  readonly stats: readonly { readonly label: string; readonly value: string }[];
+  readonly stats: readonly Stat[];
   readonly mix: readonly MixShare[] | null;
   /** The one thing to remember, specific to this spot. */
   readonly keyPoint: string;
@@ -77,25 +84,34 @@ export function feedback(g: Grade, opponents: Opponents, bb: number): Feedback {
     return { tone: "ungraded", context: ctx, headline: "Not graded", summary: g.reason, stats: [], mix: null, keyPoint: g.reason, draw: null, read: null, details: [], caveats: [] };
   }
   const describe = (a: PlayerAction) => describeAction(a, bb, g.allInTo);
-  const win = { label: winLabel(g.win, opponents), value: pct(g.win.chance) };
-  const cost = g.verdict !== "good" && g.evLossBB !== null ? [{ label: "Cost on average", value: `−${dollars(g.evLossBB)}` }] : [];
+  const win: Stat = {
+    label: winLabel(g.win, opponents), value: pct(g.win.chance),
+    hint: "How often your hand ends up best if all the cards are dealt out, against the hands they likely hold.",
+  };
+  const cost: Stat[] = g.verdict !== "good" && g.evLossBB !== null ? [{
+    label: "Cost on average", value: `−${dollars(g.evLossBB)}`,
+    hint: "What your choice loses next to the best one, averaged over every hand they could hold. One hand's result can differ; this is what it costs over time.",
+  }] : [];
   const base = { tone: g.verdict, context: context(g, opponents, bb), headline: headline(g, bb) };
   if (g.basis.kind === "chart") {
     const hand = prettyClass(g.basis.handClass);
     return {
       ...base, mix: null, read: null, draw: null, details: [g.basis.source], caveats: [],
-      summary: `${capital(hand)} is ${g.basis.bestMove === "raise" ? "a raise" : g.basis.bestMove === "call" ? "a call" : "a fold"} from the ${seatName(g.basis.position)} seat, where about ${pct(g.basis.continueShare)} of hands keep playing.`,
-      stats: [{ label: "Your hand", value: hand }, win, { label: "Hands that keep playing here", value: pct(g.basis.continueShare) }],
-      keyPoint: chartKeyPoint(g, opponents, describe),
+      summary: chartSummary(g, describe),
+      stats: [{ label: "Your hand", value: hand }, win, { label: "Hands worth playing here", value: pct(g.basis.continueShare), hint: "Out of every starting hand you could be dealt, the share worth playing in this spot. The rest are folds." }],
+      keyPoint: chartKeyPoint(g, opponents),
     };
   }
   const b = g.basis;
   const bet = quotedBet(g);
   const fold = bet?.foldShare ?? null;
   const foldLine = fold === null || fold < 0.05 ? "They almost never fold to a bet." : `They fold to ${describe(bet!.action)} ${pct(fold)} of the time.`;
-  const second = b.potOddsNeeded !== null
-    ? { label: "Needed to call", value: pct(b.potOddsNeeded) }
-    : { label: "They fold to a bet", value: fold === null || fold < 0.05 ? "rarely" : pct(fold) };
+  const second: Stat = b.potOddsNeeded !== null
+    ? {
+      label: "Needed to call", value: pct(b.potOddsNeeded),
+      hint: `The price of calling. You pay a little to win the whole pot, so calling pays off if you win at least ${pct(b.potOddsNeeded)} of the time. You win ${pct(g.win.chance)}, so ${g.win.chance >= b.potOddsNeeded ? "calling pays" : "calling loses money"}.`,
+    }
+    : { label: "They fold to a bet", value: fold === null || fold < 0.05 ? "rarely" : pct(fold), hint: "How often a bet wins the pot straight away, with no showdown." };
   const opp = opponents[b.villain];
   return {
     ...base, mix: b.mix, draw: drawLine(g),
@@ -114,4 +130,4 @@ export function feedback(g: Grade, opponents: Opponents, bb: number): Feedback {
 }
 
 export const feedbackText = (f: Feedback) =>
-  [f.context, f.headline, f.summary, ...f.stats.map((s) => `${s.label} ${s.value}`), f.keyPoint, f.draw ?? "", f.read ?? "", ...f.details, ...f.caveats].join(" ");
+  [f.context, f.headline, f.summary, ...f.stats.map((s) => `${s.label} ${s.value} ${s.hint ?? ""}`), f.keyPoint, f.draw ?? "", f.read ?? "", ...f.details, ...f.caveats].join(" ");

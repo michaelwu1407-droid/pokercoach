@@ -1,6 +1,7 @@
 import { legalActions } from "../engine/reduce";
 import type { HandState, SeatIndex } from "../engine/types";
 import { type Position, positionOf, RFI } from "./preflopCharts";
+import { RANKS } from "../cards/card";
 import { type HandClass, parseRange } from "./ranges";
 
 /** The preflop situations the app grades. Together they cover every preflop decision. */
@@ -81,3 +82,39 @@ export const chartMove = (c: ResponseChart, cls: HandClass): ChartMove =>
 
 export const RESPONSE_CHART_SOURCE =
   "Based on the default charts for six-player tables with $100 stacks, written for this app. They are a close approximation, not a published source.";
+
+/** A run of side cards (or of pairs), as rank indexes from low to high. */
+export type Run = readonly [number, number];
+
+/**
+ * The chart's line for hands like yours: same high card and same suitedness, or all pairs.
+ * This is how a player reads a chart, so the coach can say "Queen-Eight suited or better".
+ */
+export interface ChartRow {
+  /** Rank index of the high card. For pairs, the pair's rank. */
+  readonly high: number;
+  /** "pair", "suited" or "offsuit". */
+  readonly shape: "pair" | "suited" | "offsuit";
+  readonly raise: readonly Run[];
+  readonly call: readonly Run[];
+}
+
+function runs(ranks: readonly number[]): Run[] {
+  const out: [number, number][] = [];
+  for (const r of ranks) {
+    const last = out[out.length - 1];
+    if (last && last[1] === r - 1) last[1] = r;
+    else out.push([r, r]);
+  }
+  return out;
+}
+
+export function rowOf(chart: ResponseChart, cls: HandClass): ChartRow {
+  const high = RANKS.indexOf(cls[0] ?? "");
+  const shape = cls.length === 2 ? "pair" : cls[2] === "s" ? "suited" : "offsuit";
+  const members = shape === "pair"
+    ? RANKS.split("").map((r) => r + r)
+    : RANKS.slice(0, high).split("").map((k) => RANKS[high] + k + cls[2]);
+  const ranksIn = (set: ReadonlySet<HandClass>) => members.flatMap((m, i) => (set.has(m) ? [i] : []));
+  return { high, shape, raise: runs(ranksIn(chart.raise)), call: runs(ranksIn(chart.call)) };
+}
