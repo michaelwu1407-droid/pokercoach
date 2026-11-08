@@ -110,7 +110,7 @@ try {
   await page.getByTestId("next-drill").click();
 
   await page.getByTestId("tab-progress").click();
-  assert.match(await page.getByTestId("progress").innerText(), /EV lost per decision/);
+  assert.match(await page.getByTestId("progress").innerText(), /Lost per decision/);
   await page.screenshot({ path: `${OUT}/progress.png` });
 
   await page.setViewportSize({ width: 390, height: 844 });

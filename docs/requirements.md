@@ -31,7 +31,7 @@ All deterministic code.
 4. **Grader.** Infers the opponent's range from their known strategy, prices every option you could have clicked, and grades your choice by EV lost.
 5. **Coach.** Turns a grade into one feedback card, and decides whether to pause play.
 6. **Learner model.** Mastery per concept, spaced review, saved mistakes for drills.
-7. **Measurement.** EV lost per decision, by week and by concept.
+7. **Measurement.** EV lost per decision by week, and a record per skill, weakest first.
 
 ## Core data shapes
 

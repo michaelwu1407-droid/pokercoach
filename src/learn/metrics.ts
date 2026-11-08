@@ -33,11 +33,27 @@ export function weekly(log: readonly LogEntry[]): WeekStat[] {
   });
 }
 
-/** Mean EV loss per decision credited to each concept. Shows where the leaks are. */
-export function leaks(log: readonly LogEntry[]): { conceptId: string; decisions: number; meanEvLossBB: number }[] {
-  const by = new Map<string, number[]>();
-  for (const e of log) if (e.evLossBB !== null) for (const id of e.conceptIds) by.set(id, [...(by.get(id) ?? []), e.evLossBB]);
-  return [...by.entries()]
-    .map(([conceptId, xs]) => ({ conceptId, decisions: xs.length, meanEvLossBB: xs.reduce((a, b) => a + b, 0) / xs.length }))
-    .sort((a, b) => b.meanEvLossBB - a.meanEvLossBB);
+export interface Leak {
+  readonly conceptId: string;
+  readonly decisions: number;
+  /** Share of decisions graded "mistake" or "blunder". */
+  readonly missRate: number;
+  /** Mean EV lost per EV-graded decision, or null when the skill is graded by chart. */
+  readonly meanEvLossBB: number | null;
+}
+
+/** Each skill's record, worst first: by how often it is missed, then by EV lost. */
+export function leaks(log: readonly LogEntry[]): Leak[] {
+  const by = new Map<string, LogEntry[]>();
+  for (const e of log) for (const id of e.conceptIds) by.set(id, [...(by.get(id) ?? []), e]);
+  const out = [...by.entries()].map(([conceptId, es]) => {
+    const ev = es.filter((e) => e.evLossBB !== null);
+    return {
+      conceptId,
+      decisions: es.length,
+      missRate: es.filter((e) => e.verdict === "mistake" || e.verdict === "blunder").length / es.length,
+      meanEvLossBB: ev.length ? ev.reduce((s, e) => s + e.evLossBB!, 0) / ev.length : null,
+    };
+  });
+  return out.sort((a, b) => b.missRate - a.missRate || (b.meanEvLossBB ?? 0) - (a.meanEvLossBB ?? 0));
 }

@@ -26,6 +26,27 @@ export const CORE_CONCEPTS: readonly Concept[] = [
     sources: [{ kind: "chart", chartId: "rfi" }],
   },
   {
+    id: "vs-limpers",
+    title: "Raising over limpers",
+    statement: "When players limp in, raise your good hands to take the pot from them, and fold the rest.",
+    appliesWhen: ["preflop-vs-limp"],
+    sources: [{ kind: "chart", chartId: "vs-limp" }],
+  },
+  {
+    id: "vs-open",
+    title: "Facing a raise",
+    statement: "Against a raise, re-raise your best hands, call a few more, and fold most. Tighter against early raisers.",
+    appliesWhen: ["preflop-vs-open"],
+    sources: [{ kind: "chart", chartId: "vs-open" }],
+  },
+  {
+    id: "vs-reraise",
+    title: "Facing a re-raise",
+    statement: "Once the betting is raised and re-raised, only premium hands continue.",
+    appliesWhen: ["preflop-vs-reraise"],
+    sources: [{ kind: "chart", chartId: "vs-reraise" }],
+  },
+  {
     id: "pot-odds",
     title: "Pot odds",
     statement: "Call when your chance of winning beats the share of the final pot you would put in.",
@@ -38,6 +59,13 @@ export const CORE_CONCEPTS: readonly Concept[] = [
     statement: "Bet when worse hands call or better hands fold. Otherwise check.",
     appliesWhen: ["postflop", "not-facing-bet", "heads-up"],
     sources: [{ kind: "math", note: "A bet's value is what it wins when they fold plus its equity when they call." }],
+  },
+  {
+    id: "multiway",
+    title: "Pots with several players",
+    statement: "With more players in, someone is more likely to have a strong hand. Bluff less and need more to call.",
+    appliesWhen: ["postflop", "multiway"],
+    sources: [{ kind: "math", note: "Your equity is shared against every hand still in the pot." }],
   },
   {
     id: "respect-nit-aggression",

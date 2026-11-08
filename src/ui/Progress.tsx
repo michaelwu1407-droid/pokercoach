@@ -10,10 +10,10 @@ export function Progress({ learner, concepts }: { learner: Learner; concepts: re
   return (
     <section className="page" data-testid="progress">
       <h2>Progress</h2>
-      <p className="muted">The number that matters is EV lost per decision. It should fall week by week. Wins and losses are noise.</p>
+      <p className="muted">The number that matters is how much you lose per decision on average, the same "cost" the coach shows. It should fall week by week. Winning or losing hands is noise.</p>
       {weeks.length === 0 ? <div className="empty">Play some hands to see your trend.</div> : (
         <table className="grid">
-          <thead><tr><th>Week of</th><th>EV-graded decisions</th><th>EV lost per decision</th><th>Preflop chart accuracy</th></tr></thead>
+          <thead><tr><th>Week of</th><th>Decisions after the flop</th><th>Lost per decision</th><th>Preflop decisions right</th></tr></thead>
           <tbody>{weeks.map((w) => (
             <tr key={w.weekStart}>
               <td>{formatDate(w.weekStart)}</td>
@@ -24,9 +24,14 @@ export function Progress({ learner, concepts }: { learner: Learner; concepts: re
           ))}</tbody>
         </table>
       )}
-      <h3>Biggest leaks</h3>
+      <h3>Your skills, weakest first</h3>
       {leakList.length === 0 ? <p className="muted">None measured yet.</p> : (
-        <ol>{leakList.map((l) => <li key={l.conceptId}>{title(l.conceptId)}: {l.meanEvLossBB.toFixed(2)}bb per decision over {l.decisions}</li>)}</ol>
+        <ol data-testid="leaks">{leakList.map((l) => (
+          <li key={l.conceptId}>
+            <b>{title(l.conceptId)}</b>: {Math.round(l.missRate * l.decisions)} mistakes in {l.decisions}
+            {l.meanEvLossBB !== null && `, ${l.meanEvLossBB.toFixed(1)}bb lost per decision on average`}
+          </li>
+        ))}</ol>
       )}
     </section>
   );
