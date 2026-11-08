@@ -25,8 +25,15 @@ page.on("pageerror", (e) => errors.push(String(e)));
 
 try {
   await page.goto(`http://localhost:${PORT}/`);
+  await page.getByTestId("help").waitFor();
+  await page.screenshot({ path: `${OUT}/help.png` });
+  await page.keyboard.press("f");
+  assert.ok(await page.getByTestId("help").isVisible(), "shortcuts are inactive while the guide is open");
+  await page.keyboard.press("Escape");
+  await page.getByTestId("help").waitFor({ state: "hidden" });
   await page.getByTestId("table").waitFor();
   assert.ok(await page.getByTestId("new-table").isVisible(), "first hand announces a new table");
+  assert.match(await page.getByTestId("you-have").innerText(), /You have: /);
   const seen = { keyed: 0, feedback: 0, mix: 0, read: 0, pauses: 0, hands: 0, decisions: 0, maxButtons: 0 };
   let lastFeedback = "";
 
@@ -52,9 +59,11 @@ try {
     if (await page.getByTestId("next-hand").isVisible()) {
       seen.hands++;
       assert.match(await page.getByTestId("review").innerText(), /Your decisions are what count/);
+      // A walk (everyone folds to your big blind) ends at once, so wait for the table to change, not the button to go.
+      const before = await page.evaluate(() => document.querySelector("[data-testid=table]")?.textContent ?? "");
       if (seen.hands % 2 === 0) await page.keyboard.press("Space");
       else await page.getByTestId("next-hand").click();
-      await page.getByTestId("next-hand").waitFor({ state: "hidden" });
+      await page.waitForFunction((b) => document.querySelector("[data-testid=table]")?.textContent !== b, before);
       continue;
     }
     if (await page.getByTestId("action-bar").isVisible()) {

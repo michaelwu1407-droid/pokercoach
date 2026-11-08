@@ -6,6 +6,7 @@ export function useKeys(handler: ((key: string) => boolean) | null): void {
     if (!handler) return;
     const onKey = (e: KeyboardEvent) => {
       if (e.metaKey || e.ctrlKey || e.altKey || (e.target as HTMLElement | null)?.closest("input, textarea")) return;
+      if (document.querySelector("[role=dialog]")) return;
       if (handler(e.key.toLowerCase())) e.preventDefault();
     };
     window.addEventListener("keydown", onKey);

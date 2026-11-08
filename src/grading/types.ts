@@ -21,6 +21,8 @@ export type Basis =
       readonly opener: Position | null;
       readonly handClass: string;
       readonly bestMove: ChartMove;
+      /** You raised a hand that is a standard raise one seat later. */
+      readonly borderline: boolean;
       /** Share of all starting hands the chart raises, and calls, in this spot. */
       readonly raiseShare: number;
       readonly callShare: number;
@@ -65,10 +67,13 @@ export type Grade =
 
 const aggressive = (a: PlayerAction) => a.type === "bet" || a.type === "raise";
 
-/** Right idea with the wrong size is "small" unless it costs a lot. */
+/**
+ * Right idea with the wrong size is "small" at most. Sizing is a second-order skill, and the card
+ * still shows what the better size earns.
+ */
 export function verdictForChoice(chosen: PlayerAction, best: PlayerAction, evLossBB: number): Verdict {
   const v = verdictFor(evLossBB);
-  return aggressive(chosen) && aggressive(best) && evLossBB < 3 && v === "mistake" ? "small" : v;
+  return aggressive(chosen) && aggressive(best) && v !== "good" ? "small" : v;
 }
 
 export function verdictFor(evLossBB: number): Verdict {

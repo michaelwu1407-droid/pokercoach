@@ -37,3 +37,19 @@ You always commit first. Then one card shows the verdict, at most three numbers,
 ## 8. Recommendations are always buttons, and deep shoves are never recommended
 
 The grader prices exactly the sizes the action bar offers (`src/grading/sizes.ts`). An all-in for more than twice the pot is priced but never recommended, because the one-step lookahead undervalues bets that keep later streets to play. Before this rule, deep shoves kept "winning" for that reason alone.
+
+## 9. Every preflop decision is graded by situation
+
+`src/evaluator/responseCharts.ts` classifies each preflop decision as opening, facing limpers, facing a raise, facing a re-raise, or facing a 4-bet, and picks the chart by your seat and the raiser's. A hand listed as both raise and call is a raise, enforced in the chart builder. Raising a calling hand, or calling a raising hand, is "close". Playing a folding hand is a mistake.
+
+## 10. Multiway pots are graded by sampling
+
+Each opponent's range is inferred exactly, as in heads-up. Their hands and the runout are then sampled together 600 times. A bet is answered by each opponent independently, and re-raises count as calls. The card names these simplifications.
+
+## 11. One pause per hand
+
+A loose beginner made a costly mistake in 58% of simulated hands. Pausing on each would turn play into a lecture, so play pauses at most once per hand. Later mistakes in the same hand still get a card.
+
+## 12. Beginner aids
+
+The guide opens on the first visit with hand rankings and every word the coach uses. The table always says what you hold in plain words. Keyboard shortcuts keep folds fast.

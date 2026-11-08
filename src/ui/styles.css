@@ -124,3 +124,15 @@ button.primary { background: var(--accent); color: var(--accent-ink); border-col
 .context { font-size: 13px; color: var(--muted); }
 kbd { font: inherit; font-size: 11px; opacity: 0.6; border: 1px solid currentColor; border-radius: 4px; padding: 0 4px; margin-left: 4px; }
 @media (hover: none) { kbd { display: none; } }
+.you-have { margin: 28px 0 8px; text-align: center; color: var(--muted); }
+.you-have b { color: var(--ink); }
+.overlay { position: fixed; inset: 0; background: rgba(0, 0, 0, 0.45); display: flex; align-items: center; justify-content: center; padding: 16px; z-index: 10; }
+.sheet { background: var(--card); color: var(--ink); border-radius: var(--radius); padding: 20px; width: calc(100vw - 2rem); max-width: 560px; max-height: 90vh; overflow-y: auto; }
+.sheet h2 { margin: 0; }
+.sheet h3 { margin: 16px 0 6px; font-size: 15px; }
+.sheet-head { display: flex; justify-content: space-between; align-items: center; gap: 12px; }
+.plain-list { margin: 0; padding-left: 20px; display: grid; gap: 4px; }
+.terms { margin: 0; display: grid; gap: 8px; }
+.terms dt { font-weight: 700; }
+.terms dd { margin: 0; color: var(--muted); }
+.sheet-start { margin-top: 16px; }

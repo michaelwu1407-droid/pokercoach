@@ -18,6 +18,8 @@ function rc(raise: string, call: string): ResponseChart {
   return { raise: r, call: new Set([...parseRange(call)].filter((h) => !r.has(h))) };
 }
 const EARLY: readonly Position[] = ["UTG", "HJ"];
+const LOOSER: Partial<Record<Position, Position>> = { UTG: "HJ", HJ: "CO", CO: "BTN", SB: "BTN" };
+const TIGHTER: Partial<Record<Position, Position>> = { UTG: "UTG", HJ: "UTG", CO: "HJ", BTN: "CO", SB: "CO" };
 
 const VS_OPEN = {
   early: rc("QQ+, AKs, AKo", "77-JJ, AQs, AJs, KQs"),
@@ -34,6 +36,8 @@ const BB_VS_LIMP = rc("88+, ATs+, KQs, AJo+", "");
 
 export interface PreflopRead {
   readonly spot: PreflopSpot;
+  /** A looser chart for the same spot. Raising a hand only in this one is a borderline call, not a mistake. */
+  readonly nearby: ReadonlySet<HandClass>;
   readonly position: Position;
   /** Seat of the first raiser, when there is one. */
   readonly opener: Position | null;
@@ -48,23 +52,26 @@ export function readPreflop(st: HandState, hero: SeatIndex): PreflopRead {
   const raises = st.history.filter((a) => a.type === "raise");
   const opener = raises[0] ? positionOf(st.config, raises[0].seat) : null;
   const heroRaised = st.history.some((a) => a.seat === hero && a.type === "raise");
-  const rfiOr = (fallback: ResponseChart): ResponseChart => {
-    const c = RFI[position];
-    return c ? { raise: c.raise, call: new Set() } : fallback;
+  const asChart = (p: Position | undefined): ResponseChart => {
+    const c = p && RFI[p];
+    return c ? { raise: c.raise, call: new Set() } : BB_VS_LIMP;
   };
+  const none = new Set<HandClass>();
   if (raises.length === 0) {
     const limped = st.history.some((a) => a.type === "call");
-    if (!limped) return { spot: "rfi", position, opener, chart: rfiOr(BB_VS_LIMP) };
-    return { spot: "vs-limp", position, opener, chart: position === "BB" ? BB_VS_LIMP : rfiOr(BB_VS_LIMP) };
+    if (!limped) return { spot: "rfi", position, opener, chart: asChart(position), nearby: asChart(LOOSER[position]).raise };
+    // Raising over limpers uses the next tighter seat's opening range, because limpers call a lot.
+    const chart = position === "BB" ? BB_VS_LIMP : asChart(TIGHTER[position]);
+    return { spot: "vs-limp", position, opener, chart, nearby: position === "BB" ? none : asChart(position).raise };
   }
-  if (raises.length >= 3 || (raises.length === 2 && !heroRaised)) return { spot: "vs-4bet", position, opener, chart: VS_4BET };
-  if (raises.length === 2) return { spot: "vs-3bet", position, opener, chart: VS_3BET };
+  if (raises.length >= 3 || (raises.length === 2 && !heroRaised)) return { spot: "vs-4bet", position, opener, chart: VS_4BET, nearby: none };
+  if (raises.length === 2) return { spot: "vs-3bet", position, opener, chart: VS_3BET, nearby: none };
   const early = opener !== null && EARLY.includes(opener);
   const chart = position === "BB" ? (early ? VS_OPEN.bbEarly : VS_OPEN.bbLate)
     : position === "SB" ? (early ? VS_OPEN.sb : VS_OPEN.sbVsLate)
     : early ? (position === "CO" || position === "BTN" ? VS_OPEN.lateVsEarly : VS_OPEN.early)
     : VS_OPEN.late;
-  return { spot: "vs-open", position, opener, chart };
+  return { spot: "vs-open", position, opener, chart, nearby: none };
 }
 
 export const chartMove = (c: ResponseChart, cls: HandClass): ChartMove =>

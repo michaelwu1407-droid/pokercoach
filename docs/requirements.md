@@ -26,7 +26,7 @@ Each finding changes a design rule. Sources are named so they can be checked.
 All deterministic code.
 
 1. **Game engine.** Deals, enforces legal actions, computes side pots, runs showdown. A hand is an event log reduced to state.
-2. **Evaluator.** Hand ranking, equity against a range, pot odds, open-raise charts.
+2. **Evaluator.** Hand ranking, equity against a range, pot odds, and preflop charts for opening, facing limpers, a raise, a re-raise and a 4-bet.
 3. **Opponents.** Four styles (nit, regular, maniac, calling station). Each table seats five random styles, each player with their own thresholds. The table changes every 25 hands.
 4. **Grader.** Infers the opponent's range from their known strategy, prices every option you could have clicked, and grades your choice by EV lost.
 5. **Coach.** Turns a grade into one feedback card, and decides whether to pause play.
@@ -46,7 +46,7 @@ All deterministic code.
 
 1. You play a hand at a table of five unknown players.
 2. You decide. Nothing hints at the answer first.
-3. A feedback card appears for that decision. Play pauses only if it cost 2bb or more, or broke the open-raise chart.
+3. A feedback card appears for that decision. Play pauses only if it cost 2bb or more or broke a preflop chart, and at most once per hand.
 4. The card shows what they likely had, the numbers that decided it, one takeaway, and who the opponent really is.
 5. After the hand, a short review lists your graded decisions. The result is shown apart from the grades.
 6. Mistakes return as practice a few minutes later, mixed with other concepts.
@@ -64,16 +64,17 @@ All deterministic code.
 | Engine | Done | 100k random hands conserve chips and replay identically. |
 | Evaluator | Done | All 2,598,960 five-card hands match the known counts. Equity matches outs counting. |
 | Opponents | Done | Random styles per table, individual thresholds, verified by test. |
-| Grader | Done | Grades proven independent of undealt cards. Recommendations are always a button on screen. |
+| Grader | Done | Every decision is graded: preflop by situation chart, postflop by EV against one or several opponents. Grades proven independent of undealt cards. Recommendations are always a button on screen. |
 | Coach | Done | Every card in a 150-hand session passes the number-grounding check and has a key point. |
 | Drills | Done | Browser test fast-forwards 5 minutes and drills come due. |
 | Measurement | Needs four weeks of play | Progress tab shows EV lost per decision by week and the biggest leaks. |
 
-Not graded yet, in order of teaching impact: preflop spots other than raise-first-in, and multiway pots. Each says why on its card.
+Known approximations, each shown on its card: later streets are treated as checked down, and against several opponents each one answers a bet as if deciding alone.
 
 ## Defaults (change any)
 
 - No-Limit Hold'em, six-max cash, 100bb.
 - Web, desktop and phone.
 - Play pauses on losses of 2bb or more.
-- Open-raise charts are approximate defaults written for this app.
+- Preflop charts are approximate defaults written for this app.
+- Keyboard: F fold, C check or call, R and 2 to 3 for sizes, Space to continue.

@@ -24,7 +24,7 @@ export function sizeOptions(st: HandState): SizeOption[] {
   const out: SizeOption[] = [];
   for (const c of [...candidates, { label: "All-in", to: raise.max }]) {
     const to = clamp(c.to);
-    if (!out.some((s) => s.to === to)) out.push({ label: c.label, to });
+    if (!out.some((s) => s.to === to)) out.push({ label: to === raise.max ? "All-in" : c.label, to });
   }
   return out;
 }

@@ -1,7 +1,9 @@
 import { describe, expect, it } from "vitest";
 import { type Card, FULL_DECK, parseCards } from "../cards/card";
 import { STYLES } from "../bots/styles";
-import { apply, reduce } from "../engine/reduce";
+import { apply, legalActions, reduce } from "../engine/reduce";
+import { playRandomHand } from "../engine/randomPlay";
+import { sizeOptions } from "./sizes";
 import type { HandEvent, PlayerAction, Start } from "../engine/types";
 import { grade } from "./grade";
 
@@ -93,4 +95,20 @@ describe("multiway EV grading", () => {
     expect(g.best.type).not.toBe("fold");
     expect(g.verdict).toBe("blunder");
   }, 30_000);
+});
+
+describe("size options", () => {
+  it("labels any size that puts you all-in as All-in", () => {
+    for (let seed = 1; seed <= 300; seed++) {
+      const { events } = playRandomHand(seed);
+      let st = reduce([events[0]!]);
+      for (const e of events.slice(1)) {
+        for (const o of sizeOptions(st)) {
+          const legal = legalActions(st)!;
+          expect(o.label === "All-in").toBe(o.to === legal.raise!.max);
+        }
+        st = apply(st, e as PlayerAction);
+      }
+    }
+  });
 });

@@ -35,7 +35,7 @@ function headline(g: Graded, bigBlind: number): string {
   const cap = best[0]!.toUpperCase() + best.slice(1);
   switch (g.verdict) {
     case "good": return `Good ${NOUN[g.action.type]}`;
-    case "small": return `Close. ${cap} was slightly better`;
+    case "small": return aggressive(g.action) && aggressive(g.best) ? `Right idea. ${cap} was better` : `Close. ${cap} was slightly better`;
     case "mistake": return `Mistake. ${cap} was better`;
     case "blunder": return `Big mistake. ${cap} was much better`;
   }
@@ -72,7 +72,7 @@ function evKeyPoint(g: Graded, bigBlind: number): string {
   if (g.verdict === "good") return why(g, chosen);
   if (chosen === "aggressive" && best === "aggressive" && "to" in g.action && "to" in g.best) {
     const bigger = g.best.to > g.action.to;
-    return `Right idea, wrong size. ${bigger ? "A bigger" : "A smaller"} bet, ${describeAction(g.best, bigBlind)}, earns about ${g.evLossBB!.toFixed(1)}bb more. ${why(g, "aggressive")}`;
+    return `Right idea, wrong size. ${bigger ? "A bigger" : "A smaller"} size, ${describeAction(g.best, bigBlind)}, earns about ${g.evLossBB!.toFixed(1)}bb more. ${why(g, "aggressive")}`;
   }
   return why(g, best);
 }
@@ -81,8 +81,11 @@ const MOVE_WORD = { raise: "a raise", call: "a call", fold: "a fold" } as const;
 
 function chartKeyPoint(g: Graded): string {
   if (g.basis.kind !== "chart") return "";
-  const { spot, handClass, position, opener, bestMove, raiseShare, callShare, continueShare } = g.basis;
-  const verdict = g.verdict === "good" ? `${handClass} is ${MOVE_WORD[bestMove]} here` : `${handClass} should be ${MOVE_WORD[bestMove]} here`;
+  const { spot, handClass, position, opener, bestMove, raiseShare, callShare, continueShare, borderline } = g.basis;
+  const verdict = g.verdict === "good" ? `${handClass} is ${MOVE_WORD[bestMove]} here`
+    : borderline && spot === "vs-limp" ? `${handClass} is just outside, so this is close. It is a standard open when nobody has limped`
+    : borderline ? `${handClass} is just outside, so this is close. It becomes a raise one seat later`
+    : `${handClass} should be ${MOVE_WORD[bestMove]} here`;
   const fold = position === "BB" && spot === "vs-limp" ? "check" : "fold";
   switch (spot) {
     case "rfi":

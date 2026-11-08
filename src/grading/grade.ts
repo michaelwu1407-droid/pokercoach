@@ -58,12 +58,13 @@ function gradeChart(ctx: DecisionContext): Grade {
     : legal.canCheck ? { type: "check", seat } : { type: "fold", seat };
   const chose: ChartMove = action.type === "raise" || action.type === "bet" ? "raise" : action.type === "call" ? "call" : "fold";
   // Raising a calling hand or calling a raising hand is a smaller error than playing a folding hand.
-  const verdict = chose === bestMove ? "good" : chose !== "fold" && bestMove !== "fold" ? "small" : "mistake";
+  const borderline = chose === "raise" && bestMove === "fold" && read.nearby.has(handClass);
+  const verdict = chose === bestMove ? "good" : (chose !== "fold" && bestMove !== "fold") || borderline ? "small" : "mistake";
   return {
     graded: true, street: st.street, seat, action, best, evLossBB: null, verdict,
     basis: {
       kind: "chart", spot: read.spot, source: RESPONSE_CHART_SOURCE, position: read.position, opener: read.opener,
-      handClass, bestMove, raiseShare: share(read.chart.raise), callShare: share(read.chart.call),
+      handClass, bestMove, borderline, raiseShare: share(read.chart.raise), callShare: share(read.chart.call),
       continueShare: share(new Set([...read.chart.raise, ...read.chart.call])),
     },
   };

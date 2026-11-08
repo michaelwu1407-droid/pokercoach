@@ -16,9 +16,8 @@ export type CoachEvent =
 export const initialCoach: CoachState = { kind: "idle", pausedThisHand: false };
 
 export function pauses(g: Grade): boolean {
-  if (!g.graded) return false;
-  if (g.evLossBB === null) return g.verdict === "mistake" || g.verdict === "blunder";
-  return g.evLossBB >= PAUSE_LOSS_BB;
+  if (!g.graded || (g.verdict !== "mistake" && g.verdict !== "blunder")) return false;
+  return g.evLossBB === null || g.evLossBB >= PAUSE_LOSS_BB;
 }
 
 /**

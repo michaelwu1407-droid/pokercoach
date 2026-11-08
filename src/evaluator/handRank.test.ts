@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import fc from "fast-check";
 import { type Card, FULL_DECK, parseCards } from "../cards/card";
 import { categoryOf, evaluate, type HandScore } from "./handRank";
+import { describeHand } from "./describe";
 
 const ev = (s: string) => evaluate(parseCards(s));
 
@@ -63,5 +64,18 @@ describe("evaluate", () => {
       }),
       { numRuns: 20_000 },
     );
+  });
+});
+
+describe("describeHand", () => {
+  const d = (hole: string, board: string) => describeHand(parseCards(hole) as unknown as [Card, Card], parseCards(board));
+  it("names hands the way a player says them", () => {
+    expect(d("As Kd", "")).toBe("Ace-King offsuit");
+    expect(d("8h 8c", "")).toBe("Pocket Eights");
+    expect(d("Kh 7c", "Ks 2d 9c")).toBe("Pair of Kings");
+    expect(d("Kh 7c", "Ks 7d 9c")).toBe("Two pair, Kings and Sevens");
+    expect(d("5h 4c", "Ac 2d 3s")).toBe("Straight to the Five");
+    expect(d("Ah Kh", "Qh Jh Th")).toBe("Royal flush");
+    expect(d("Kh Kc", "Ks 7d 7c")).toBe("Full house, Kings full of Sevens");
   });
 });
