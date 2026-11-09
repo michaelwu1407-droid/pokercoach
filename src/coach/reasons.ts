@@ -50,7 +50,7 @@ function reason(g: Graded, kind: Kind, bet: ActionValue | null, name: string | u
   if (kind === "aggressive" && bet) {
     const move = describe(bet.action);
     if (called !== null && called < BLUFF_BELOW && bet.foldNeeded !== undefined && bet.risk !== undefined && bet.potWithBet !== undefined) {
-      return `${called < 0.005 ? "You never win if called" : `You rarely win if called (${pct(called)})`}, so this is a bluff. Risking ${money(bet.risk)} to win the ${money(g.pot)} pot pays off if ${them} folds more than ${money(bet.risk)} ÷ ${money(bet.potWithBet)} = ${pct(bet.foldNeeded)} of the time. ${capital(them)} folds ${pct(fold)}: ${move}.`;
+      return `${called < 0.005 ? "You never win if called" : `You rarely win if called (${pct(called)})`}, so this is a bluff. Risking ${money(bet.risk)} to win the ${money(g.pot)} pot pays off if ${them} folds more than ${money(bet.risk)} ÷ ${money(bet.potWithBet)} (your bet plus the pot) = ${pct(bet.foldNeeded)} of the time. ${capital(them)} folds ${pct(fold)}: ${move}.`;
     }
     if (fold < 0.3 && (called ?? equity) >= 0.5)
       return `${capital(move)}: ${them} ${fold < 0.005 ? "never folds" : `rarely folds (${pct(fold)})`} but calls with worse hands, and when called you win ${pct(called ?? equity)}.`;
@@ -62,7 +62,7 @@ function reason(g: Graded, kind: Kind, bet: ActionValue | null, name: string | u
   if (called === null) return `Your chance to win is ${eq}: check.`;
   if (equity >= 0.5) return `You are ahead (${eq}), but a bet mostly makes weaker hands fold: check and let them stay in.`;
   if (bet && bet.foldNeeded !== undefined && bet.risk !== undefined && bet.potWithBet !== undefined && called < 0.5 && fold > 0.005) {
-    const needs = `${capital(describe(bet.action))} needs ${them} to fold more than ${money(bet.risk)} ÷ ${money(bet.potWithBet)} = ${pct(bet.foldNeeded)} of the time.`;
+    const needs = `${capital(describe(bet.action))} needs ${them} to fold more than ${money(bet.risk)} ÷ ${money(bet.potWithBet)} (your bet plus the pot) = ${pct(bet.foldNeeded)} of the time.`;
     if (fold <= bet.foldNeeded) return `${needs} ${capital(them)} folds only ${pct(fold)}, and when called you win just ${pct(called)}: check.`;
     // Enough folds on paper, yet checking is worth more: their raises and calls cost more than the folds win.
     return `${needs} ${capital(them)} folds ${pct(fold)}, but when ${them} does not fold they often raise or have you beaten, so over all their answers a bet earns less than checking (each option's value is under "How this was worked out"): check.`;

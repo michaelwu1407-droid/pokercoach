@@ -124,7 +124,7 @@ export function feedback(g: Grade, opponents: Opponents, bb: number): Feedback {
     summary: evSummary(g, opp?.name, describe, (chips) => money(chips, bb)),
     stats: [win, second, ...cost],
     keyPoint: evRule(g),
-    read: opp ? `${opp.name} plays like a ${opp.style.name.toLowerCase()}: ${firstSentence(opp.style.leak).toLowerCase()}${opp.style.id === "lag" && g.best.type === "fold" ? " Even so, this time their bets point to strong hands (see above)." : ""}` : null,
+    read: opp ? `${opp.name} plays like a ${opp.style.name.toLowerCase()}: ${firstSentence(opp.style.leak).toLowerCase()}${opp.style.id === "lag" && g.best.type === "fold" ? " Even so, your hand beats few of the hands their bets point to this time (see above)." : ""}` : null,
     details: [
       `Their actions narrow them to about ${b.rangeSize} likely hands.`,
       ...b.values.map((v) => `${capital(describe(v.action))}: ${signedMoney(v.evBB * bb, bb)} on average`),

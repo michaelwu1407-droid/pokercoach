@@ -27,6 +27,8 @@ These follow from the north star. Each one is a rule a test or type must enforce
 
 Every number shown answers three things, briefly: what it is made of (the hands, the sum), why it is that size, and a quick check the learner can do at a live table. Never spend words defining basic terms such as what a percentage is. Short beats complete; plain words beat precise jargon.
 
+Before shipping any change to coach text, run `npm run cards -- <seed> 24` on two or three seeds and read every card as a beginner who knows hand rankings but no theory: no line may contradict its own numbers, repeat another line, or leave a number without what it is measured against. Fix and re-read until none do.
+
 ## Stack defaults
 
 TypeScript, strict mode. Web app. Choices beyond this are made per pstack's Prototype playbook, with the result recorded in `docs/decisions.md`.

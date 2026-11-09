@@ -8,6 +8,7 @@
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
     "e2e": "vite-node scripts/e2e.mjs",
+    "cards": "vite-node scripts/cards.ts",
     "verify": "npm run typecheck && npm test && npm run build && npm run e2e"
   },
   "devDependencies": {

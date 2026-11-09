@@ -59,7 +59,7 @@ function situation(b: Chart, g: Graded, o: Opponents): string {
       const callers = g.win.against.map((seat) => nameOf(o, seat) ?? "a player");
       return `${callers.length ? and(callers) : "Players"} only called the big blind, and you are in the ${seatName(b.position)} seat (${SEAT_HINT[b.position]})`;
     }
-    case "vs-open": return `${raiser} raised`;
+    case "vs-open": return `${raiser} raised${b.opener ? ` from the ${seatName(b.opener)} seat` : ""}, and you are in the ${seatName(b.position)} seat (${SEAT_HINT[b.position]})`;
     case "vs-3bet": return `${raiser} re-raised you`;
     case "vs-4bet": return `${raiser} raised your re-raise`;
   }
@@ -114,9 +114,9 @@ export function preflopWhy(g: Graded, o: Opponents): string {
       return `${few} The later your seat, the more you can play: about ${early.roughPct}% of hands from the Early seat, ${dealer.roughPct}% from the Dealer.`;
     }
     case "vs-limp": return "Why: players who only call usually have medium hands. Raise the hands that beat those and take the pot.";
-    case "vs-open": return `Why so few: a raise from the ${b.opener ? `${seatName(b.opener)} seat (${SEAT_HINT[b.opener]})` : "seat they sit in"} usually means one of the best ${b.openerShare !== null ? `${pct(b.openerShare)} of hands` : "hands"}, so you need a hand that is often ahead of ${raiser}'s.`;
+    case "vs-open": return `Why so few: a raise from the ${b.opener ? `${seatName(b.opener)} seat (${SEAT_HINT[b.opener]})` : "seat they sit in"} usually means one of the best ${b.openerShare !== null ? `${pct(b.openerShare)} of hands` : "hands"}, so you need a hand that is often ahead of ${raiser}'s. The list depends on both seats, theirs and yours.`;
     case "vs-3bet": return "Why so few: a re-raise usually means a very strong hand.";
-    case "vs-4bet": return "Why so few: a third raise means one of the very best hands.";
+    case "vs-4bet": return "Why so few: by the third raise the pot is huge, so only hands that are well ahead of what they raise with are worth it.";
   }
 }
 
@@ -130,5 +130,8 @@ export function preflopStats(g: Graded, o: Opponents): { value: string; means: s
   const against = names.length === 0 ? "one random hand, since nobody else has put chips in yet"
     : names.length === 1 && g.win.theirs ? `the hands ${names[0]} usually ${b.spot === "vs-limp" ? "calls" : "raises"} with here, mostly ${kindsText(g.win.theirs.mostly)}`
     : `${and(names)} at once, each holding the hands they usually play this way`;
-  return [list, { value: pct(g.win.chance), means: `how often ${hand} wins if all five cards are dealt, against ${against}.` }];
+  // A wild player's raises are mostly weak hands: say so, or "best 20%" in the why line reads as a contradiction.
+  const loose = names.length === 1 && g.win.theirs && !g.win.theirs.mostly.includes("pair") && b.spot !== "vs-limp"
+    ? ` ${names[0]} raises with far more hands than most players.` : "";
+  return [list, { value: pct(g.win.chance), means: `how often ${hand} wins if all five cards are dealt, against ${against}.${loose}` }];
 }
