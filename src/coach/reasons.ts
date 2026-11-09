@@ -2,7 +2,8 @@ import { prettyClass } from "../cards/card";
 import type { Opponents } from "../bots/opponents";
 import type { PlayerAction } from "../engine/types";
 import { aggressive, type ActionValue, type Graded } from "../grading/types";
-import { handWords, rowEmpty, rowGroup, rowLine } from "./chartWords";
+import { handWords, rowEmpty, rowLine } from "./chartWords";
+import { breakdown, features, inMainGroup, liveCheck, typeOf } from "./handTypes";
 import { dollars, seatName } from "./words";
 
 export const pct = (x: number) => `${Math.round(x * 100)}%`;
@@ -83,35 +84,45 @@ export function chartSummary(g: Graded, describe: (a: PlayerAction) => string): 
     : borderline && spot === "vs-limp" ? `${hand} is just outside, so this is close. It is a usual raise when nobody has called yet.`
     : borderline ? `${hand} is just outside, so this is close. It becomes a raise from a later seat.`
     : `${hand} should be ${move} here.`;
-  if (rowEmpty(row) && move === "a fold") {
-    const every = `every ${rowGroup(row).replace(/hands$/, "hand")} is a fold here`;
-    return g.verdict === "good" ? `${hand} is a fold: ${every}.` : `${hand} should be a fold: ${every}.`;
+  // A hand outside every type in the live check needs no chart line: the check itself says fold.
+  if (move === "a fold" && !borderline && !inMainGroup(g.basis.handClass, g.basis.groups)) {
+    return `${hand}: ${features(g.basis.handClass)}. None of the hands worth playing here look like that, so fold.`;
+  }
+  // Passes the quick check but is among the weakest of its type: the chart line shows where the cut is.
+  if (move === "a fold" && !borderline) {
+    const cut = rowEmpty(row) ? "" : ` ${rowLine(row, RAISE_VERB[spot])}`;
+    return `${hand} is ${typeOf(g.basis.handClass)}, but one of the weakest, so it misses the list here.${cut}`;
   }
   return `${rowLine(row, RAISE_VERB[spot])} ${verdict}`;
 }
 
-/** A rule of thumb for the percentage shown above it, so you can estimate it at the table. One or two sentences. */
+/** A question to ask at the table, then why the list is so short. */
 export function chartKeyPoint(g: Graded, opponents: Opponents): string {
   if (g.basis.kind !== "chart") return "";
-  const { spot, bestMove, behind, openerShare, ladder } = g.basis;
-  const raiser = g.basis.openerSeat !== null ? opponents[g.basis.openerSeat]?.name : undefined;
-  const ahead = bestMove === "fold" && g.win.chance >= 0.5 && behind > 0
-    ? ` Being ahead of one random hand is not enough: ${behind} player${behind > 1 ? "s" : ""} still act${behind > 1 ? "" : "s"} after you.`
-    : "";
+  const { spot, behind, openerShare, ladder, groups } = g.basis;
+  const raiser = g.basis.openerSeat !== null ? opponents[g.basis.openerSeat]?.name ?? "The raiser" : "The raiser";
+  const check = `Quick check: ${liveCheck(groups)} If not, fold.`;
   switch (spot) {
     case "rfi": {
-      const rule = ladder.map((l) => `${seatName(l.position)} ${l.roughPct}%`).join(", ");
-      return `Rule of thumb when nobody has raised: ${rule}. The later your seat, the fewer players behind you who could hold a better hand.${ahead}`;
+      const early = ladder[0]!, dealer = ladder.find((l) => l.position === "BTN")!;
+      return `${check} Why so few: ${behind} player${behind === 1 ? "" : "s"} still act after you and any of them can hold a better hand. Fewer players behind, more hands: about ${early.roughPct}% from the Early seat, ${dealer.roughPct}% on the Dealer.`;
     }
     case "vs-limp":
-      return `Rule of thumb: when players only call the big blind, raise your good hands to take the pot and fold the rest.${ahead}`;
+      return `${check} Why: players who only call usually hold medium hands, so raise the hands that beat those.`;
     case "vs-open":
-      return `Rule of thumb: ${openerShare !== null ? `${raiser ?? "the raiser"} raises with about ${pct(openerShare)} of hands, so ` : ""}play only hands that beat most of theirs.${ahead}`;
+      return `${check} Why so few: ${raiser} raises with only ${openerShare !== null ? `about ${pct(openerShare)} of hands, their best` : "good hands"}. You want hands that are often ahead of theirs.`;
     case "vs-3bet":
-      return "Rule of thumb: every extra raise means a stronger hand, so far fewer hands are worth playing.";
+      return `${check} Why so few: a re-raise usually means a very strong hand.`;
     case "vs-4bet":
-      return "Rule of thumb: after a raise and a re-raise, only the very best hands keep playing.";
+      return `${check} Why so few: two raises before you mean the very best hands.`;
   }
+}
+
+/** What the percentage is made of: "174 of 1,326 hands: 78 pairs, 52 Ace with a Ten or higher, ...". */
+export function chartMakeup(g: Graded): string {
+  if (g.basis.kind !== "chart") return "";
+  const { listSize, allHands, groups, otherCombos } = g.basis;
+  return `of hands are worth playing here: ${listSize} of ${allHands.toLocaleString("en-US")}. They are ${breakdown(groups, otherCombos)}.`;
 }
 
 export function drawLine(g: Graded): string | null {

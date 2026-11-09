@@ -1,9 +1,8 @@
 import type { Opponents } from "../bots/opponents";
 import type { PlayerAction, Street } from "../engine/types";
 import type { MixShare } from "../grading/rangeMix";
-import { aggressive, type Grade, type Graded, type Verdict, type Win } from "../grading/types";
-import { handWords } from "./chartWords";
-import { chartKeyPoint, chartSummary, drawLine, evKeyPoint, pct, quotedBet } from "./reasons";
+import { aggressive, CALL_GUIDE, type Grade, type Graded, type Verdict, type Win } from "../grading/types";
+import { chartKeyPoint, chartMakeup, chartSummary, drawLine, evKeyPoint, pct, quotedBet } from "./reasons";
 import { allInLabel, dollars, money, seatName, signedMoney } from "./words";
 
 /** A number and what it means, read as one line: "37%  how often you win against Gus's likely hands". */
@@ -92,10 +91,7 @@ export function feedback(g: Grade, opponents: Opponents, bb: number): Feedback {
     return {
       ...base, mix: null, read: null, draw: null, details: [g.basis.source], caveats: [],
       summary: chartSummary(g, describe),
-      stats: [{
-        value: pct(g.basis.continueShare),
-        means: `of hands are worth playing here. The app's list for this spot has ${g.basis.listSize} of the ${g.basis.allHands.toLocaleString("en-US")} possible starting hands. ${handWords(g.basis.handClass)} ${g.basis.bestMove === "fold" ? "is not on it" : "is on it"}.`,
-      }, win],
+      stats: [{ value: pct(g.basis.continueShare), means: chartMakeup(g)      }, win],
       keyPoint: chartKeyPoint(g, opponents),
     };
   }
@@ -103,10 +99,11 @@ export function feedback(g: Grade, opponents: Opponents, bb: number): Feedback {
   const bet = quotedBet(g);
   const fold = bet?.foldShare ?? null;
   const foldLine = fold === null || fold < 0.05 ? "They almost never fold to a bet." : `They fold to ${describe(bet!.action)} ${pct(fold)} of the time.`;
-  const second: Stat = b.potOddsNeeded !== null
+  const price = g.facing;
+  const second: Stat = b.potOddsNeeded !== null && price
     ? {
       value: pct(b.potOddsNeeded),
-      means: `the least you must win for a call to pay off. ${g.win.chance >= b.potOddsNeeded ? "Your chance is higher, so calling pays." : "Your chance is lower, so calling loses money."}`,
+      means: `needed to call: you pay ${money(price.call, bb)} and the pot becomes ${money(price.potAfter, bb)}, and ${money(price.call, bb)} ÷ ${money(price.potAfter, bb)} = ${pct(b.potOddsNeeded)}. You win ${pct(g.win.chance)}, so ${g.win.chance >= b.potOddsNeeded ? "call" : "fold"}. Quick check: a half-pot bet needs ${pct(CALL_GUIDE.halfPot)}, a pot-size bet ${pct(CALL_GUIDE.fullPot)}.`,
     }
     : { value: fold === null || fold < 0.05 ? "rarely" : pct(fold), means: "how often a bet makes them fold, so you win the pot at once." };
   const opp = opponents[b.villain];

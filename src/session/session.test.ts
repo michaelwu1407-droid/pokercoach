@@ -58,7 +58,8 @@ describe("session", () => {
       const f = feedback(grade, opponents, BIG_BLIND);
       expect(f.stats.length).toBeLessThanOrEqual(3);
       expect(f.keyPoint.length).toBeGreaterThan(20);
-      expect(ungroundedNumbers(feedbackText(f), allowedNumbers(grade, BIG_BLIND))).toEqual([]);
+      const bad = ungroundedNumbers(feedbackText(f), allowedNumbers(grade, BIG_BLIND));
+      expect(bad).toEqual([]);
       if (f.mix) expect(f.mix.reduce((s, m) => s + m.share, 0)).toBeCloseTo(1, 6);
       if (grade.graded && grade.basis.kind === "ev") expect(f.read).toMatch(/plays like a/);
     }

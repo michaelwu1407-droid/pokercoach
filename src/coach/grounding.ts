@@ -1,5 +1,5 @@
 import { RANK_LABELS, RANKS } from "../cards/card";
-import type { Grade } from "../grading/types";
+import { CALL_GUIDE, type Grade } from "../grading/types";
 
 /** A number as printed, thousands separators included: "1,326" is one number. */
 const NUMBER = /\d{1,3}(?:,\d{3})+(?:\.\d+)?|\d+(?:\.\d+)?/g;
@@ -24,6 +24,7 @@ export function allowedNumbers(g: Grade, bigBlind: number): Set<string> {
   add(bigBlind);
   // "Chance to win vs 3 players" counts the seats the grader measured against.
   if (g.graded) add(g.win.against.length);
+  Object.values(CALL_GUIDE).forEach(add);
   return out;
 }
 

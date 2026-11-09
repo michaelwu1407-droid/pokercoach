@@ -1,6 +1,7 @@
 import type { PlayerAction, SeatIndex, Street } from "../engine/types";
 import type { Position } from "../evaluator/preflopCharts";
 import type { ChartMove, ChartRow, PreflopSpot } from "../evaluator/responseCharts";
+import type { HandGroup } from "../evaluator/handGroups";
 import type { MixShare } from "./rangeMix";
 import type { Draw } from "./outs";
 
@@ -37,6 +38,9 @@ export type Basis =
       readonly continueShare: number;
       /** How many of the ALL_HANDS starting hands the chart plays here: continueShare = listSize / allHands. */
       readonly listSize: number;
+      /** The main types in the list (pairs, Ace with a Ten or higher, ...), and how many listed hands are other types. */
+      readonly groups: readonly HandGroup[];
+      readonly otherCombos: number;
       readonly allHands: number;
       /** 1 - continueShare: the hands to fold. */
       readonly foldShare: number;
@@ -81,7 +85,13 @@ export interface Facing {
   readonly to: number;
   /** Who made it. Null for the big blind's forced bet. */
   readonly by: SeatIndex | null;
+  /** What calling costs you, and the pot once you have called: call ÷ potAfter is the share you must win. */
+  readonly call: number;
+  readonly potAfter: number;
 }
+
+/** Shares to win needed against a half-pot and a pot-size bet: the two to remember. */
+export const CALL_GUIDE = { halfPot: 1 / 4, fullPot: 1 / 3 } as const;
 
 export interface Graded {
   readonly graded: true;

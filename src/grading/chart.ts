@@ -2,6 +2,7 @@ import { aggressiveTo } from "../bots/policy";
 import { legalActions } from "../engine/reduce";
 import type { HandState, PlayerAction } from "../engine/types";
 import { chartMove, type ChartMove, readPreflop, RESPONSE_CHART_SOURCE, rowOf } from "../evaluator/responseCharts";
+import { summarise } from "../evaluator/handGroups";
 import { RFI } from "../evaluator/preflopCharts";
 import { classOf, rangeCombos } from "../evaluator/ranges";
 import type { GradeCore, Verdict } from "./types";
@@ -44,6 +45,7 @@ export function gradeChart(st: HandState, action: PlayerAction): GradeCore {
     : (chose !== "fold" && bestMove !== "fold") || borderline ? "small" : "mistake";
   const played = new Set([...read.chart.raise, ...read.chart.call]);
   const continueShare = share(played);
+  const summary = summarise(played);
   return {
     graded: true, street: st.street, seat, action, best, evLossBB: null, verdict,
     basis: {
@@ -51,7 +53,7 @@ export function gradeChart(st: HandState, action: PlayerAction): GradeCore {
       openerSeat: read.openerSeat, handClass, bestMove, borderline, oversized,
       raiseShare: share(read.chart.raise), callShare: share(read.chart.call),
       openerShare: read.opener && RFI[read.opener] ? share(RFI[read.opener]!.raise) : null, ladder: LADDER,
-      listSize: rangeCombos(played).length, allHands: ALL_HANDS,
+      listSize: rangeCombos(played).length, allHands: ALL_HANDS, groups: summary.main, otherCombos: summary.others,
       continueShare, foldShare: 1 - continueShare, playOneIn: Math.max(1, Math.round(1 / continueShare)), row: rowOf(read.chart, handClass),
       behind: st.phase === "betting" ? st.pending.filter((p) => p !== seat).length : 0,
     },

@@ -1,5 +1,5 @@
 import type { Style } from "../bots/styles";
-import { legalActions } from "../engine/reduce";
+import { legalActions, potSize } from "../engine/reduce";
 import type { HandEvent, HandState, PlayerAction, SeatIndex } from "../engine/types";
 import { equityVsRange } from "../evaluator/equity";
 import { ALL_CLASSES, combosOf } from "../evaluator/ranges";
@@ -44,7 +44,7 @@ function facingAt(st: HandState): Facing | null {
   const legal = legalActions(st);
   if (st.phase !== "betting" || !legal || legal.callAmount === 0) return null;
   const last = [...st.history].reverse().find((a) => (a.type === "bet" || a.type === "raise") && a.to === st.currentBet);
-  return { to: st.currentBet, by: last ? last.seat : null };
+  return { to: st.currentBet, by: last ? last.seat : null, call: legal.callAmount, potAfter: potSize(st) + legal.callAmount };
 }
 
 function gradeCore(ctx: DecisionContext): GradeCore {

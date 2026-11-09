@@ -23,6 +23,10 @@ These follow from the north star. Each one is a rule a test or type must enforce
 4. **You decide first.** Nothing hints at the answer before a decision. Feedback comes after.
 5. **The hand is an event log.** Game state is derived by reducing an append-only list of actions. No mutable table object.
 
+## Teaching rule (from the owner's feedback, applies to every screen)
+
+Every number shown answers three things, briefly: what it is made of (the hands, the sum), why it is that size, and a quick check the learner can do at a live table. Never spend words defining basic terms such as what a percentage is. Short beats complete; plain words beat precise jargon.
+
 ## Stack defaults
 
 TypeScript, strict mode. Web app. Choices beyond this are made per pstack's Prototype playbook, with the result recorded in `docs/decisions.md`.
