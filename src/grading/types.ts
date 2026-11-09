@@ -1,7 +1,7 @@
 import type { PlayerAction, SeatIndex, Street } from "../engine/types";
 import type { Position } from "../evaluator/preflopCharts";
 import type { ChartMove, ChartRow, PreflopSpot } from "../evaluator/responseCharts";
-import type { HandGroup } from "../evaluator/handGroups";
+import type { GroupKind, HandGroup } from "../evaluator/handGroups";
 import type { MixShare } from "./rangeMix";
 import type { Draw } from "./outs";
 
@@ -78,6 +78,8 @@ export interface Win {
   readonly chance: number;
   /** Opponents it is measured against. Empty means one random hand, used preflop before anyone puts money in. */
   readonly against: readonly SeatIndex[];
+  /** Before the flop against one player: how many hands they play the way they did, and the main types. */
+  readonly theirs: { readonly hands: number; readonly mostly: readonly GroupKind[] } | null;
 }
 
 export interface Facing {

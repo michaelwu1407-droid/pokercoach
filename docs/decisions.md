@@ -91,9 +91,9 @@ A mistake is saved once per spot, comes back after two minutes, and is retired w
 
 The browser test seeds the app's random numbers, so a failure always reproduces. Unit tests cover the variety of hands.
 
-## 22. Chips carry over; broke opponents are replaced
+## 22. Knockout game
 
-Each hand starts with the chips everyone ended the last one with. You buy back in for $100 when broke. An opponent who goes broke leaves and a new random player sits down, so the table keeps changing and reads must be updated. The hand-over line shows your result since you sat down. Leaving a hand for practice drops that hand, so its chips stay where they were.
+Chips carry from hand to hand. An opponent who runs out of chips leaves the table, and seats are renumbered. The game ends when you run out (it restarts with five new players) or when everyone else has (you win). The hand-over line shows your result this game. Leaving a hand for practice drops that hand, so its chips stay where they were.
 
 ## 23. Numbers are read as sentences
 

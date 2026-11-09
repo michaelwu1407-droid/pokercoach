@@ -1,5 +1,5 @@
 import { FULL_DECK, mulberry32, shuffled } from "../cards/card";
-import { newcomer, type Opponents, randomOpponents, stylesOf } from "../bots/opponents";
+import { type Opponents, randomOpponents, stylesOf } from "../bots/opponents";
 import { decide } from "../bots/policy";
 import { apply, legalActions, reduce } from "../engine/reduce";
 import type { HandEvent, HandState, PlayerAction, SeatIndex } from "../engine/types";
@@ -11,8 +11,6 @@ import { spotView } from "../learn/spot";
 export const HERO: SeatIndex = 0;
 export const STACK_BB = 100;
 export const BIG_BLIND = 100;
-/** After this many hands the table changes, so reads have to be made again. */
-export const HANDS_PER_TABLE = 25;
 const OPPONENT_SEATS = [1, 2, 3, 4, 5];
 
 export interface Hand {
@@ -28,11 +26,15 @@ export const newTable = (seed: number): Opponents => randomOpponents(mulberry32(
 export const START_STACK = STACK_BB * BIG_BLIND;
 export const freshStacks = (): number[] => Array.from({ length: 6 }, () => START_STACK);
 
-/** Each hand rotates the button. Stacks carry over from the last hand; default is everyone at 100bb. */
+/**
+ * Each hand rotates the button. One seat per entry in `stacks`: you in seat 0, opponents after.
+ * Stacks carry over from the last hand; the default is a fresh six-player game at 100bb each.
+ */
 export function newHand(seed: number, handNo: number, opponents: Opponents, stacks: readonly number[] = freshStacks()): Hand {
   const rng = mulberry32(seed);
-  const seats = Array.from({ length: 6 }, (_, i) => ({ id: i === HERO ? "You" : opponents[i]!.name, stack: stacks[i]! }));
-  const events: HandEvent[] = [{ type: "start", config: { seats, smallBlind: BIG_BLIND / 2, bigBlind: BIG_BLIND, button: handNo % 6 }, deck: shuffled(rng, FULL_DECK) }];
+  const n = stacks.length;
+  const seats = stacks.map((stack, i) => ({ id: i === HERO ? "You" : opponents[i]!.name, stack }));
+  const events: HandEvent[] = [{ type: "start", config: { seats, smallBlind: BIG_BLIND / 2, bigBlind: BIG_BLIND, button: handNo % n }, deck: shuffled(rng, FULL_DECK) }];
   return runBots({ seed, opponents, events });
 }
 
@@ -43,41 +45,38 @@ export function chipsAfter(h: Hand): number[] {
   return st.seats.map((seat, i) => seat.stack + st.payouts.filter((p) => p.seat === i).reduce((t, p) => t + p.amount, 0));
 }
 
-/** The table you sit at: chips carry from hand to hand, and your result adds up. */
+/** A knockout game: chips carry over, broke opponents leave, and it ends when you or everyone else is out. */
 export interface Table {
   readonly handNo: number;
+  /** Opponents by seat, 1 to n-1. Seats are renumbered when someone leaves. */
   readonly opponents: Opponents;
-  /** Everyone's chips at the start of the current hand. */
+  /** Everyone's chips at the start of the current hand, you first. */
   readonly stacks: readonly number[];
-  /** Your result since you sat down, before the current hand. */
+  /** Your result this game, before the current hand. */
   readonly net: number;
-  /** Players who sat down this hand, in place of someone who ran out of chips. */
-  readonly arrivals: readonly { readonly name: string; readonly replaced: string }[];
+  /** Who ran out of chips last hand and left. */
+  readonly left: readonly string[];
+  /** How the previous game ended, shown on the first hand of a new one. */
+  readonly ended: "won" | "lost" | null;
 }
+
+export const freshGame = (seed: number, ended: Table["ended"] = null): Table =>
+  ({ handNo: 0, opponents: newTable(seed), stacks: freshStacks(), net: 0, left: [], ended });
 
 /**
  * The table for the next hand. A finished hand pays out; an unfinished one (you left for practice)
- * is dropped, so chips stay where they were. You buy back in when broke. An opponent who goes broke
- * leaves and a new random player takes the seat. Every 25 hands a new table sits down; you keep your chips.
+ * is dropped, so chips stay where they were. If you are broke, a new game starts. An opponent who is
+ * broke leaves. When only you are left, you have won and a new game starts.
  */
 export function nextTable(t: Table, hand: Hand, seed: number): Table {
-  const handNo = t.handNo + 1;
   const chips = state(hand).phase === "complete" ? chipsAfter(hand) : [...t.stacks];
+  if (chips[HERO]! <= 0) return freshGame(seed, "lost");
+  const staying = chips.flatMap((c, seat) => (c > 0 ? [seat] : []));
+  if (staying.length === 1) return freshGame(seed, "won");
+  const opponents: Opponents = Object.fromEntries(staying.slice(1).map((seat, i) => [i + 1, t.opponents[seat]!]));
+  const left = chips.flatMap((c, seat) => (c > 0 ? [] : [t.opponents[seat]!.name]));
   const net = t.net + chips[HERO]! - t.stacks[HERO]!;
-  if (handNo % HANDS_PER_TABLE === 0) {
-    const stacks = freshStacks().map((c, i) => (i === HERO && chips[HERO]! > 0 ? chips[HERO]! : c));
-    return { handNo, opponents: newTable(seed), stacks, net, arrivals: [] };
-  }
-  let opponents = t.opponents;
-  const arrivals: { name: string; replaced: string }[] = [];
-  const rng = mulberry32(seed);
-  chips.forEach((c, seat) => {
-    if (c > 0 || seat === HERO) return;
-    const replaced = opponents[seat]!.name;
-    opponents = newcomer(opponents, seat, rng);
-    arrivals.push({ name: opponents[seat]!.name, replaced });
-  });
-  return { handNo, opponents, stacks: chips.map((c) => (c > 0 ? c : START_STACK)), net, arrivals };
+  return { handNo: t.handNo + 1, opponents, stacks: staying.map((seat) => chips[seat]!), net, left, ended: null };
 }
 
 /** Plays bot seats until the hero must act or the hand ends. Bot randomness derives from the seed. */

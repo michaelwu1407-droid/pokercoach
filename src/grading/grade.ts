@@ -2,10 +2,12 @@ import type { Style } from "../bots/styles";
 import { legalActions, potSize } from "../engine/reduce";
 import type { HandEvent, HandState, PlayerAction, SeatIndex } from "../engine/types";
 import { equityVsRange } from "../evaluator/equity";
-import { ALL_CLASSES, combosOf } from "../evaluator/ranges";
+import { type GroupKind, groupOf } from "../evaluator/handGroups";
+import { ALL_CLASSES, classOf, combosOf, type WeightedCombo } from "../evaluator/ranges";
 import { gradeChart } from "./chart";
 import { gradeHeadsUp } from "./headsUp";
 import { equityAgainst, gradeMultiway } from "./multiway";
+import { effectiveSize, villainRange } from "./villainRange";
 import { drawOf } from "./outs";
 import type { Facing, Graded, Grade, GradeCore, Win } from "./types";
 
@@ -28,15 +30,28 @@ function winAt(ctx: DecisionContext, core: Omit<Graded, "win" | "draw" | "facing
   const hero = action.seat;
   if (core.basis.kind === "ev") {
     const live = st.seats.flatMap((s, i) => (i !== hero && !s.folded ? [i] : []));
-    return { chance: core.basis.equity, against: live };
+    return { chance: core.basis.equity, against: live, theirs: null };
   }
   const inPot = [...new Set(st.history.filter((a) => (a.type === "call" || a.type === "raise") && a.seat !== hero).map((a) => a.seat))]
     .filter((s) => !st.seats[s]!.folded && styles[s]);
   if (inPot.length === 0) {
     const r = equityVsRange(st.seats[hero]!.hole, ALL_HANDS, [], { samples: 4000, seed: 7 + events.length });
-    return { chance: r.equity, against: [] };
+    return { chance: r.equity, against: [], theirs: null };
   }
-  return { chance: equityAgainst(events, st, hero, styles, inPot), against: inPot };
+  const theirs = inPot.length === 1 ? rangeSummary(villainRange(events, inPot[0]!, styles[inPot[0]!]!, st.seats[hero]!.hole)) : null;
+  return { chance: equityAgainst(events, st, hero, styles, inPot), against: inPot, theirs };
+}
+
+/** A share of their range at least this big names a type as what they "mostly" hold. */
+const MOSTLY = 0.2;
+
+/** How many hands a range holds, and which types make up most of it. */
+function rangeSummary(range: readonly WeightedCombo[]): NonNullable<Win["theirs"]> {
+  const byKind = new Map<GroupKind, number>();
+  for (const { combo, weight } of range) byKind.set(groupOf(classOf(combo)), (byKind.get(groupOf(classOf(combo))) ?? 0) + weight);
+  const total = [...byKind.values()].reduce((a, b) => a + b, 0);
+  const mostly = [...byKind.entries()].filter(([, w]) => w >= MOSTLY * total).sort((a, b) => b[1] - a[1]).map(([k]) => k);
+  return { hands: effectiveSize(range), mostly };
 }
 
 /** The bet you were answering, and who made it. Null when there was nothing to call. */

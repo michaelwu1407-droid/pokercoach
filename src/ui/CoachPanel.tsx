@@ -14,15 +14,15 @@ interface Props {
   /** "turn": your next decision is waiting, so the last card folds to one line you can open. "review": the hand is over. */
   readonly moment: "watching" | "turn" | "review";
   readonly newTable: boolean;
-  /** Players who just sat down in place of someone who ran out of chips. */
-  readonly arrivals: readonly { readonly name: string; readonly replaced: string }[];
+  /** What changed at the table since the last hand, if anything. */
+  readonly news: string | null;
 }
 
 /**
  * Your coach. After each decision, its card. While you make the next decision, only a quiet line, so
  * nothing hints at the answer. When the hand ends, every decision of the hand, each one openable.
  */
-export function CoachPanel({ decisions, opponents, bigBlind, moment, newTable, arrivals }: Props) {
+export function CoachPanel({ decisions, opponents, bigBlind, moment, newTable, news }: Props) {
   const [open, setOpen] = useState<number | null>(null);
   const latest = decisions[decisions.length - 1];
   const cardFor = (d: Decision) => (d.grade ? <FeedbackCard f={feedback(d.grade, opponents, bigBlind)} /> : <p className="muted" data-testid="grading">Looking at your decision…</p>);
@@ -30,9 +30,7 @@ export function CoachPanel({ decisions, opponents, bigBlind, moment, newTable, a
     return (
       <aside className="coach coach-empty" data-testid="coach">
         <p className="muted" data-testid="table-news">
-          {newTable ? "New table: five new players. Watch how each one bets."
-            : arrivals.length > 0 ? arrivals.map((a) => `${a.replaced} ran out of chips. ${a.name} sits down; watch how they bet.`).join(" ")
-            : "Your coach shows up here after each decision."}
+          {news ?? (newTable ? "New game: five new players, $100 each. Last one with chips wins." : "Your coach shows up here after each decision.")}
         </p>
       </aside>
     );

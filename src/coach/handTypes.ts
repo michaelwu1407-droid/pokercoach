@@ -3,7 +3,7 @@ import { type GroupKind, groupOf, type HandGroup } from "../evaluator/handGroups
 
 const LABEL: Record<GroupKind, string> = {
   pair: "pairs", aceBig: "Ace with a Ten or higher", bothBig: "two cards Ten or higher",
-  aceSmall: "Ace with a small card", suited: "other suited hands", other: "other hands",
+  aceSmall: "Ace with a small card", suited: "other suited hands", other: "other unsuited hands",
 };
 const ASK: Record<GroupKind, string> = {
   pair: "a pair", aceBig: "an Ace with a Ten or higher", bothBig: "two cards Ten or higher",
@@ -41,4 +41,11 @@ export const inMainGroup = (cls: string, main: readonly HandGroup[]) =>
   main.some((g) => g.kind === groupOf(cls) && (!g.allSuited || cls[2] === "s"));
 
 /** The type your hand belongs to, as asked in the live check: "two cards Ten or higher". */
-export const typeOf = (cls: string) => ASK[groupOf(cls)];
+const A_TYPE: Record<GroupKind, string> = {
+  pair: "a pair", aceBig: "an Ace with a Ten or higher", bothBig: "two cards Ten or higher",
+  aceSmall: "an Ace with a small card", suited: "a suited hand", other: "an unsuited low hand",
+};
+export const typeOf = (cls: string) => A_TYPE[groupOf(cls)];
+
+/** "pairs and Ace with a small card": the main types in someone's range. */
+export const kindsText = (kinds: readonly GroupKind[]) => list(kinds.map((k) => LABEL[k])).replace(/ or ([^,]+)$/, " and $1");

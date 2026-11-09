@@ -3,7 +3,7 @@ import type { PlayerAction } from "../engine/types";
 import type { Grade } from "../grading/types";
 import { CORE_CONCEPTS } from "../learn/concepts";
 import { drillQueue, learnFrom, type Learner, type SavedSpot } from "../learn/learner";
-import { advance, conceptsAt, freshStacks, type Hand, HANDS_PER_TABLE, newHand, newTable, nextTable, state, type Table } from "../session/session";
+import { advance, conceptsAt, freshGame, type Hand, newHand, nextTable, state, type Table } from "../session/session";
 import { gradeLater } from "./grader";
 import { loadLearner, saveLearner } from "./store";
 
@@ -64,7 +64,7 @@ function dealPlay(table: Table): Event {
   return { type: "deal", mode: { kind: "play", ...table }, hand: newHand(freshSeed(), table.handNo, table.opponents, table.stacks) };
 }
 
-const firstTable = (): Table => ({ handNo: 0, opponents: newTable(freshSeed()), stacks: freshStacks(), net: 0, arrivals: [] });
+const firstTable = (): Table => freshGame(freshSeed());
 const tableOf = (m: Mode): Table => (m.kind === "play" ? m : m.resume);
 
 export function useGame() {
@@ -116,7 +116,7 @@ export function useGame() {
   }, [s.mode]);
   const skip = useCallback(() => dispatch({ type: "skip" }), []);
   const shown: Hand = playing ? { ...s.hand, events: s.hand.events.slice(0, s.shown) } : s.hand;
-  const newTableHand = s.mode.kind === "play" && s.mode.handNo % HANDS_PER_TABLE === 0;
+  const newTableHand = s.mode.kind === "play" && s.mode.handNo === 0;
   const table = tableOf(s.mode);
 
   return { mode: s.mode, table, hand: s.hand, shown, playing, decisions: s.decisions, learner, newTableHand, act, skip, nextHand, startDrills, nextDrill, stopDrills };

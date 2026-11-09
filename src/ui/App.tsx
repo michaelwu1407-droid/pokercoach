@@ -10,6 +10,7 @@ import { CoachPanel } from "./CoachPanel";
 import { Help } from "./Help";
 import { Progress } from "./Progress";
 import { Table } from "./Table";
+import { gameOutcome, tableNews } from "./tableNews";
 import { useGame } from "./useGame";
 import { useKeys } from "./useKeys";
 
@@ -30,6 +31,7 @@ export function App() {
   const me = st.seats[HERO]!;
 
   const misses = game.decisions.filter((d) => d.grade?.graded && isMiss(d.grade.verdict)).length;
+  const outcome = st.phase === "complete" ? gameOutcome(game.hand) : "playing";
   const net = st.phase === "complete" ? (st.payouts.find((p) => p.seat === HERO)?.amount ?? 0) - me.total : 0;
   const next = answered ? game.nextDrill : handOver ? game.nextHand : game.playing ? game.skip : null;
   // Space always belongs to the game, so it never presses whatever button last had focus.
@@ -65,7 +67,9 @@ export function App() {
                 {handOver && (
                   <div className="hand-over" data-testid="review">
                     <span>
-                      {signedMoney(net, bb)} this hand{drilling ? "" : ` · ${signedMoney(game.table.net + net, bb)} since you sat down`}
+                      {signedMoney(net, bb)} this hand{drilling ? "" : ` · ${signedMoney(game.table.net + net, bb)} this game`}
+                      {!drilling && outcome === "lost" ? " · You are out of chips. Next hand starts a new game." : ""}
+                      {!drilling && outcome === "won" ? " · You won: everyone else is out of chips!" : ""}
                       {misses > 0 ? ` · ${misses} mistake${misses > 1 ? "s" : ""} saved for practice` : ""}
                     </span>
                     <button className="primary" data-testid="next-hand" onClick={game.nextHand}>Next hand</button>
@@ -77,7 +81,7 @@ export function App() {
           </div>
           <CoachPanel key={game.hand.seed} decisions={game.decisions} opponents={game.hand.opponents} bigBlind={bb}
             moment={heroTurn ? "turn" : handOver ? "review" : "watching"} newTable={game.newTableHand}
-            arrivals={drilling ? [] : game.table.arrivals} />
+            news={drilling ? null : tableNews(game.table)} />
         </main>
       ) : (
         <Progress learner={game.learner} concepts={CORE_CONCEPTS} />

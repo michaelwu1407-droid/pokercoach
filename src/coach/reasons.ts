@@ -88,6 +88,13 @@ export function chartSummary(g: Graded, describe: (a: PlayerAction) => string): 
   if (move === "a fold" && !borderline && !inMainGroup(g.basis.handClass, g.basis.groups)) {
     return `${hand}: ${features(g.basis.handClass)}. None of the hands worth playing here look like that, so fold.`;
   }
+  // A hand on the list: say which type it is. The headline already gives the verdict.
+  if (bestMove !== "fold" && !borderline) {
+    const chose = g.action.type === "fold" || g.action.type === "check" ? "fold" : aggressive(g.action) ? "raise" : "call";
+    if (chose !== "fold" && chose !== bestMove) return rowLine(row, RAISE_VERB[spot]);
+    const why = inMainGroup(g.basis.handClass, g.basis.groups) ? typeOf(g.basis.handClass) : "not one of the main types, but still";
+    return `${hand} is ${why}${why.endsWith("still") ? " on the list here" : ", so it makes the list here"}.`;
+  }
   // Passes the quick check but is among the weakest of its type: the chart line shows where the cut is.
   if (move === "a fold" && !borderline) {
     const cut = rowEmpty(row) ? "" : ` ${rowLine(row, RAISE_VERB[spot])}`;
@@ -118,11 +125,19 @@ export function chartKeyPoint(g: Graded, opponents: Opponents): string {
   }
 }
 
-/** What the percentage is made of: "174 of 1,326 hands: 78 pairs, 52 Ace with a Ten or higher, ...". */
+const SITUATION = {
+  "rfi": "raising when nobody has raised before you",
+  "vs-limp": "raising after players only called",
+  "vs-open": "playing against a raise",
+  "vs-3bet": "playing after your raise is re-raised",
+  "vs-4bet": "playing after a raise and a re-raise",
+} as const;
+
+/** What the percentage is made of: "of all 1,326 starting hands, 370 are worth raising after players only called. They are ...". */
 export function chartMakeup(g: Graded): string {
   if (g.basis.kind !== "chart") return "";
-  const { listSize, allHands, groups, otherCombos } = g.basis;
-  return `of hands are worth playing here: ${listSize} of ${allHands.toLocaleString("en-US")}. They are ${breakdown(groups, otherCombos)}.`;
+  const { listSize, allHands, groups, otherCombos, spot } = g.basis;
+  return `of all ${allHands.toLocaleString("en-US")} starting hands (${listSize}) are worth ${SITUATION[spot]}. They are ${breakdown(groups, otherCombos)}.`;
 }
 
 export function drawLine(g: Graded): string | null {

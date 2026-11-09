@@ -2,6 +2,7 @@ import type { Opponents } from "../bots/opponents";
 import type { PlayerAction, Street } from "../engine/types";
 import type { MixShare } from "../grading/rangeMix";
 import { aggressive, CALL_GUIDE, type Grade, type Graded, type Verdict, type Win } from "../grading/types";
+import { kindsText } from "./handTypes";
 import { chartKeyPoint, chartMakeup, chartSummary, drawLine, evKeyPoint, pct, quotedBet } from "./reasons";
 import { allInLabel, dollars, money, seatName, signedMoney } from "./words";
 
@@ -82,7 +83,11 @@ export function feedback(g: Grade, opponents: Opponents, bb: number): Feedback {
     return { tone: "ungraded", context: ctx, headline: "Not graded", summary: g.reason, stats: [], mix: null, keyPoint: g.reason, draw: null, read: null, details: [], caveats: [] };
   }
   const describe = (a: PlayerAction) => describeAction(a, bb, g.allInTo);
-  const win: Stat = { value: pct(g.win.chance), means: `how often you win against ${whoAgainst(g.win, opponents)} if all the cards come out.` };
+  const theirs = g.win.theirs;
+  const name = g.win.against.length === 1 ? opponents[g.win.against[0]!]?.name : undefined;
+  const win: Stat = theirs && name
+    ? { value: pct(g.win.chance), means: `how often you win if all five cards come out, against the ${theirs.hands} hands ${name} plays this way: mostly ${kindsText(theirs.mostly)}.` }
+    : { value: pct(g.win.chance), means: `how often you win against ${whoAgainst(g.win, opponents)} if all the cards come out.` };
   const cost: Stat[] = g.verdict !== "good" && g.evLossBB !== null
     ? [{ value: `−${dollars(g.evLossBB)}`, means: "what this choice loses on average, next to the best play." }]
     : [];
