@@ -109,6 +109,8 @@ export interface Graded {
   readonly committed: number;
   /** An even share of the pot among everyone still in: 1 ÷ players. Beating it is why raising a big pot pays. */
   readonly fairShare: number;
+  /** The five shared cards are your best hand, so at best you split the pot. */
+  readonly boardPlays: boolean;
   readonly street: Street;
   readonly seat: SeatIndex;
   readonly action: PlayerAction;
@@ -134,7 +136,7 @@ export interface Ungraded {
 
 export type Grade = Graded | Ungraded;
 /** What each grader returns. `grade` adds your chance to win and any draw. */
-export type GradeCore = Omit<Graded, "win" | "draw" | "facing" | "allInTo" | "pot" | "committed" | "fairShare"> | Ungraded;
+export type GradeCore = Omit<Graded, "win" | "draw" | "facing" | "allInTo" | "pot" | "committed" | "fairShare" | "boardPlays"> | Ungraded;
 
 /** Mistakes and blunders: the decisions that count against you and come back as practice. */
 export const isMiss = (v: Verdict) => v === "mistake" || v === "blunder";

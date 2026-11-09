@@ -2,6 +2,7 @@ import type { Style } from "../bots/styles";
 import { legalActions, potSize } from "../engine/reduce";
 import type { HandEvent, HandState, PlayerAction, SeatIndex } from "../engine/types";
 import { equityVsRange } from "../evaluator/equity";
+import { evaluate } from "../evaluator/handRank";
 import { type GroupKind, groupOf } from "../evaluator/handGroups";
 import { ALL_CLASSES, classOf, combosOf, type WeightedCombo } from "../evaluator/ranges";
 import { gradeChart } from "./chart";
@@ -25,7 +26,7 @@ const ALL_HANDS = ALL_CLASSES.flatMap((c) => combosOf(c)).map((combo) => ({ comb
  * Your chance to win at the decision. After the flop it is against everyone still in. Preflop it is
  * against the players who have put money in, or one random hand when nobody has.
  */
-function winAt(ctx: DecisionContext, core: Omit<Graded, "win" | "draw" | "facing" | "allInTo" | "pot" | "committed" | "fairShare">): Win {
+function winAt(ctx: DecisionContext, core: Omit<Graded, "win" | "draw" | "facing" | "allInTo" | "pot" | "committed" | "fairShare" | "boardPlays">): Win {
   const { state: st, action, events, styles } = ctx;
   const hero = action.seat;
   if (core.basis.kind === "ev") {
@@ -100,5 +101,6 @@ export function grade(ctx: DecisionContext): Grade {
     pot,
     committed: me.street,
     fairShare: 1 / st.seats.filter((x) => !x.folded).length,
+    boardPlays: st.board.length === 5 && evaluate(st.board) === evaluate([...me.hole, ...st.board]),
   };
 }

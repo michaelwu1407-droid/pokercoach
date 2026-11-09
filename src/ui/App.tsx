@@ -41,9 +41,9 @@ export function App() {
   return (
     <div className="app">
       <header className="topbar">
-        <span className="brand">pokercoach</span>
+        <span className="brand"><span className="brand-mark" aria-hidden="true">♠</span>pokercoach</span>
         {drilling
-          ? <button data-testid="stop-drills" onClick={game.stopDrills}>Back to the table</button>
+          ? <button data-testid="stop-drills" onClick={game.stopDrills}>Stop practice</button>
           : due > 0 && page === "table" && <button className="primary" data-testid="start-drills" onClick={game.startDrills}>Practise {due} mistake{due > 1 ? "s" : ""}</button>}
         <button data-testid="tab-progress" onClick={() => setPage(page === "table" ? "progress" : "table")}>
           {page === "table" ? "Progress" : "Back to the table"}
@@ -75,7 +75,7 @@ export function App() {
                     <button className="primary" data-testid="next-hand" onClick={game.nextHand}>Next hand</button>
                   </div>
                 )}
-                {game.playing && <p className="muted small waiting">Others are acting. Space skips ahead.</p>}
+                {game.playing && <p className="muted small waiting">Others are acting. <span className="hint-keys">Space skips ahead.</span><span className="hint-touch">Tap the table to skip.</span></p>}
               </div>
             </div>
           </div>

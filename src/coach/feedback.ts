@@ -2,14 +2,15 @@ import type { Opponents } from "../bots/opponents";
 import type { PlayerAction, Street } from "../engine/types";
 import type { MixShare } from "../grading/rangeMix";
 import { aggressive, type Grade, type Graded, type Verdict, type Win } from "../grading/types";
-import { preflopStats, preflopSummary, preflopWhy } from "./preflop";
+import { preflopStats, preflopText, preflopWhy } from "./preflop";
 import { drawLine, evRule, evSummary, pct, quotedBet } from "./reasons";
 import { allInLabel, dollars, money, seatName, signedMoney } from "./words";
 
-/** A number and what it means, read as one line: "37%  how often you win against Gus's likely hands". */
+/** A number, a short name for it, and one line on what it is made of: "28%  Needed to call  $29 ÷ $102". */
 export interface Stat {
   readonly value: string;
-  readonly means: string;
+  readonly label: string;
+  readonly detail: string;
 }
 
 export interface Feedback {
@@ -17,12 +18,15 @@ export interface Feedback {
   /** What you did and what you faced, since play may have moved on. */
   readonly context: string;
   readonly headline: string;
-  /** One short line with the number that decided it. Everything else sits behind "More detail". */
+  /** Before the flop: the rule for this spot, shown above the summary. */
+  readonly lead: string | null;
+  /** One short line with the reason that decided it. Everything else sits behind "More detail". */
   readonly summary: string;
   /** At most three numbers, the ones the decision turned on. Chance to win comes first. */
   readonly stats: readonly Stat[];
   readonly mix: readonly MixShare[] | null;
-  /** The one thing to remember, specific to this spot. */
+  /** The one thing to remember, with its tag: "Why so few", "Quick check" or "Rule". */
+  readonly keyLabel: string;
   readonly keyPoint: string;
   /** The quick in-your-head estimate for a draw: outs times 4 on the flop, times 2 on the turn. */
   readonly draw: string | null;
@@ -80,28 +84,27 @@ const firstSentence = (s: string) => s.slice(0, s.indexOf(".") + 1);
 export function feedback(g: Grade, opponents: Opponents, bb: number): Feedback {
   if (!g.graded) {
     const ctx = `${STREET[g.street]}, you chose ${describeAction(g.action, bb)}.`;
-    return { tone: "ungraded", context: ctx, headline: "Not graded", summary: g.reason, stats: [], mix: null, keyPoint: g.reason, draw: null, read: null, details: [], caveats: [] };
+    return { tone: "ungraded", context: ctx, headline: "Not graded", lead: null, summary: g.reason, stats: [], mix: null, keyLabel: "Why", keyPoint: g.reason, draw: null, read: null, details: [], caveats: [] };
   }
   const describe = (a: PlayerAction) => describeAction(a, bb, g.allInTo);
   // After the flop: measured against the hands their play points to, shown in "What they likely have".
   const names = g.win.against.map((seat) => opponents[seat]?.name ?? "a player");
-  const how = g.street === "river" ? "how often your hand is the best one now" : "how often your hand ends up best once all five cards are out";
+  const who = names.length === 1 ? names[0]! : `${names.slice(0, -1).join(", ")} and ${names[names.length - 1]}`;
   const win: Stat = {
     value: pct(g.win.chance),
-    means: names.length === 1
-      ? `${how}, against the hands ${names[0]} likely has after playing this way (see below).`
-      : `${how}, against ${names.slice(0, -1).join(", ")} and ${names[names.length - 1]} together.`,
+    label: `Your chance vs ${who}`,
+    detail: `${g.street === "river" ? "Right now" : "Once all the cards are out"}, against ${names.length === 1 ? "their" : "each one's"} likely hands (below).`,
   };
   const cost: Stat[] = g.verdict !== "good" && g.evLossBB !== null
-    ? [{ value: `−${dollars(g.evLossBB)}`, means: "what this choice loses on average, compared with the best play." }]
+    ? [{ value: `−${dollars(g.evLossBB)}`, label: "Cost of this choice", detail: "On average, compared with the best play." }]
     : [];
   const base = { tone: g.verdict, context: context(g, opponents, bb), headline: headline(g, bb) };
   if (g.basis.kind === "chart") {
+    const text = preflopText(g, opponents, describe);
+    const why = preflopWhy(g, opponents);
     return {
       ...base, mix: null, read: null, draw: null, details: [g.basis.source], caveats: [],
-      summary: preflopSummary(g, opponents, describe),
-      stats: preflopStats(g, opponents),
-      keyPoint: preflopWhy(g, opponents),
+      lead: text.lead, summary: text.summary, stats: preflopStats(g, opponents), keyLabel: why.label, keyPoint: why.text,
     };
   }
   const b = g.basis;
@@ -111,19 +114,13 @@ export function feedback(g: Grade, opponents: Opponents, bb: number): Feedback {
   const opp = opponents[b.villain];
   const them = b.opponents > 1 ? "everyone" : opp?.name ?? "they";
   const second: Stat = b.potOddsNeeded !== null && price && !(aggressive(g.action) && aggressive(g.best))
-    ? {
-      value: pct(b.potOddsNeeded),
-      means: `needed to call: you pay ${money(price.call, bb)} and the pot becomes ${money(price.potAfter, bb)}. ${money(price.call, bb)} ÷ ${money(price.potAfter, bb)} = ${pct(b.potOddsNeeded)}.`,
-    }
-    : {
-      value: fold === null ? "–" : pct(fold),
-      means: bet ? `how often ${describe(bet.action)} makes ${them} fold, so you win the pot at once.` : "how often a bet makes them fold.",
-    };
+    ? { value: pct(b.potOddsNeeded), label: "Needed to call", detail: `${money(price.call, bb)} ÷ ${money(price.potAfter, bb)} (your call ÷ the pot after you call).` }
+    : { value: fold === null ? "–" : pct(fold), label: bet && "to" in bet.action ? `${capital(them)} folds to ${bet.action.type === "bet" ? `a ${money(bet.action.to, bb)} bet` : `a raise to ${money(bet.action.to, bb)}`}` : "They fold to a bet", detail: "You win the pot at once." };
+  const rule = evRule(g);
   return {
     ...base, mix: b.mix, draw: drawLine(g),
     summary: evSummary(g, opp?.name, describe, (chips) => money(chips, bb)),
-    stats: [win, second, ...cost],
-    keyPoint: evRule(g),
+    lead: null, stats: [win, second, ...cost], keyLabel: rule.label, keyPoint: rule.text,
     read: opp ? `${opp.name} plays like a ${opp.style.name.toLowerCase()}: ${firstSentence(opp.style.leak).toLowerCase()}${opp.style.id === "lag" && g.best.type === "fold" ? " Even so, your hand beats few of the hands their bets point to this time (see above)." : ""}` : null,
     details: [
       `Their actions narrow them to about ${b.rangeSize} likely hands.`,
@@ -134,4 +131,4 @@ export function feedback(g: Grade, opponents: Opponents, bb: number): Feedback {
 }
 
 export const feedbackText = (f: Feedback) =>
-  [f.context, f.headline, f.summary, ...f.stats.map((s) => `${s.value} ${s.means}`), f.keyPoint, f.draw ?? "", f.read ?? "", ...f.details, ...f.caveats].join(" ");
+  [f.context, f.headline, f.summary, f.lead ?? "", ...f.stats.map((s) => `${s.value} ${s.label} ${s.detail}`), f.keyPoint, f.draw ?? "", f.read ?? "", ...f.details, ...f.caveats].join(" ");

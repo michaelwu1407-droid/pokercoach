@@ -1,10 +1,12 @@
 import { useState } from "react";
 import type { Opponents } from "../bots/opponents";
-import { feedback } from "../coach/feedback";
+import { describeAction, feedback } from "../coach/feedback";
+import { money } from "../coach/words";
 import { isMiss } from "../grading/types";
 import { FeedbackCard } from "./FeedbackCard";
 import type { Decision } from "./useGame";
 
+const VERDICT = { good: "Good", small: "Close", mistake: "Mistake", blunder: "Big mistake" } as const;
 const ROUND = { preflop: "Before the flop", flop: "Flop", turn: "Turn", river: "River" } as const;
 
 interface Props {
@@ -29,6 +31,7 @@ export function CoachPanel({ decisions, opponents, bigBlind, moment, newTable, n
   if (!latest) {
     return (
       <aside className="coach coach-empty" data-testid="coach">
+        <div className="micro-label">Coach</div>
         <p className="muted" data-testid="table-news">
           {news ?? (newTable ? "New game: five new players, $100 each. Last one with chips wins." : "Your coach shows up here after each decision.")}
         </p>
@@ -58,11 +61,11 @@ export function CoachPanel({ decisions, opponents, bigBlind, moment, newTable, n
         <ol className="review-list" data-testid="review-list">
           {decisions.map((d, i) => {
             const g = d.grade;
-            const label = g && g.graded ? feedback(g, opponents, bigBlind).headline : "Not graded";
+            const verdict = !g || !g.graded ? "Not graded" : VERDICT[g.verdict];
             return (
               <li key={i}>
-                <button className={`review-row${i === shown ? " review-on" : ""}${g && g.graded && isMiss(g.verdict) ? " tone-mistake" : ""}`} onClick={() => setOpen(i)}>
-                  {g ? `${ROUND[g.street]}: ${label}` : "Your last decision: looking at it…"}
+                <button className={`review-row${i === shown ? " review-on" : ""} tone-${!g ? "pending" : !g.graded ? "small" : isMiss(g.verdict) ? "mistake" : g.verdict}`} onClick={() => setOpen(i)}>
+                  {g ? <><span className="review-what">{ROUND[g.street]}, {d.action.type === "call" && g.graded && g.facing ? `call ${money(g.facing.to, bigBlind)}` : describeAction(d.action, bigBlind)}</span><span className="review-verdict">{verdict}</span></> : "Your last decision: looking at it…"}
                 </button>
               </li>
             );

@@ -23,7 +23,7 @@ for (let n = 0; n < 200 && out.length < Number(process.argv[3] ?? 16); n++) {
     if ((seen.get(key) ?? 0) < 1) {
       seen.set(key, 1);
       const f = feedback(g, h.opponents, 100);
-      out.push(`### ${f.context}\nYou have: ${describeHand(st.seats[0]!.hole, st.board)}\n**${f.headline}**\n${f.summary}\n${f.stats.map((s) => `- ${s.value} ${s.means}`).join("\n")}\n${f.mix ? `What they likely have: ${f.mix.filter((m) => m.share > 0.01).map((m) => `${m.label} ${Math.round(m.share * 100)}%`).join(", ")}\n` : ""}> ${f.keyPoint}\n${f.draw ? f.draw + "\n" : ""}${f.read ? f.read + "\n" : ""}`);
+      out.push(`### ${f.context}\nYou have: ${describeHand(st.seats[0]!.hole, st.board)}\n**${f.headline}**\n${f.lead ? `_${f.lead}_\n` : ""}${f.summary}\n${f.stats.map((s) => `- ${s.value} | ${s.label} | ${s.detail}`).join("\n")}\n${f.mix ? `What they likely have: ${f.mix.filter((m) => m.share > 0.01).map((m) => `${m.label} ${Math.round(m.share * 100)}%`).join(", ")}\n` : ""}> [${f.keyLabel}] ${f.keyPoint}\n${f.draw ? f.draw + "\n" : ""}${f.read ? f.read + "\n" : ""}`);
     }
     h = advance(h, a);
   }

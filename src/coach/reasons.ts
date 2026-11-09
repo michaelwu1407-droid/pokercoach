@@ -41,7 +41,7 @@ function reason(g: Graded, kind: Kind, bet: ActionValue | null, name: string | u
   const whenCalled = called === null ? "" : multi ? `, and against whoever calls you win ${pct(called)}` : `, and when called you win ${pct(called)}`;
   if (need !== null && kind !== "aggressive") {
     const n = pct(need);
-    if (kind === "fold" && equity < need) return `You win ${eq} of the time, but calling needs ${n}: fold.`;
+    if (kind === "fold" && equity < need) return `${equity < 0.005 ? "You never win here" : `You win ${eq} of the time`}, but calling needs ${n}: fold.`;
     if (kind === "fold") return `You win ${eq}, about the ${n} a call needs, but ${them} keeps betting on later cards, so calling costs more than it wins: fold.`;
     if (equity >= need) return `You win ${eq} of the time and calling needs only ${n}: call.`;
     if (g.street === "river") return `You are a little short of the ${n} a call needs (you win ${eq}), so calling and folding are about even.`;
@@ -50,7 +50,10 @@ function reason(g: Graded, kind: Kind, bet: ActionValue | null, name: string | u
   if (kind === "aggressive" && bet) {
     const move = describe(bet.action);
     if (called !== null && called < BLUFF_BELOW && bet.foldNeeded !== undefined && bet.risk !== undefined && bet.potWithBet !== undefined) {
-      return `${called < 0.005 ? "You never win if called" : `You rarely win if called (${pct(called)})`}, so this is a bluff. Risking ${money(bet.risk)} to win the ${money(g.pot)} pot pays off if ${them} folds more than ${money(bet.risk)} ÷ ${money(bet.potWithBet)} (your bet plus the pot) = ${pct(bet.foldNeeded)} of the time. ${capital(them)} folds ${pct(fold)}: ${move}.`;
+      const start = `${called < 0.005 ? "You never win if called" : `You rarely win if called (${pct(called)}, mostly better hands call)`}, so this is a bluff. On folds alone it needs ${pct(bet.foldNeeded)} (${money(bet.risk)} ÷ ${money(bet.potWithBet)}, your bet plus the pot).`;
+      return fold >= bet.foldNeeded
+        ? `${start} ${capital(them)} folds ${pct(fold)}: ${move}.`
+        : `${start} ${capital(them)} folds ${pct(fold)}, about break-even, and the hands you still win tip it: ${move}.`;
     }
     if (fold < 0.3 && (called ?? equity) >= 0.5)
       return `${capital(move)}: ${them} ${fold < 0.005 ? "never folds" : `rarely folds (${pct(fold)})`} but calls with worse hands, and when called you win ${pct(called ?? equity)}.`;
@@ -62,7 +65,7 @@ function reason(g: Graded, kind: Kind, bet: ActionValue | null, name: string | u
   if (called === null) return `Your chance to win is ${eq}: check.`;
   if (equity >= 0.5) return `You are ahead (${eq}), but a bet mostly makes weaker hands fold: check and let them stay in.`;
   if (bet && bet.foldNeeded !== undefined && bet.risk !== undefined && bet.potWithBet !== undefined && called < 0.5 && fold > 0.005) {
-    const needs = `${capital(describe(bet.action))} needs ${them} to fold more than ${money(bet.risk)} ÷ ${money(bet.potWithBet)} (your bet plus the pot) = ${pct(bet.foldNeeded)} of the time.`;
+    const needs = `${capital(describe(bet.action))} needs ${them} to fold ${pct(bet.foldNeeded)} of the time (${money(bet.risk)} ÷ ${money(bet.potWithBet)}, your bet plus the pot).`;
     if (fold <= bet.foldNeeded) return `${needs} ${capital(them)} folds only ${pct(fold)}, and when called you win just ${pct(called)}: check.`;
     // Enough folds on paper, yet checking is worth more: their raises and calls cost more than the folds win.
     return `${needs} ${capital(them)} folds ${pct(fold)}, but when ${them} does not fold they often raise or have you beaten, so over all their answers a bet earns less than checking (each option's value is under "How this was worked out"): check.`;
@@ -74,6 +77,11 @@ const capital = (s: string) => s[0]!.toUpperCase() + s.slice(1);
 
 /** The specific reason for this decision, in one or two sentences. Shown as the card's summary. */
 export function evSummary(g: Graded, name: string | undefined, describe: (a: PlayerAction) => string, money: Money): string {
+  const text = summaryText(g, name, describe, money);
+  return g.boardPlays ? `Your best hand is the board itself, which everyone shares, so at best you split the pot. ${text}` : text;
+}
+
+function summaryText(g: Graded, name: string | undefined, describe: (a: PlayerAction) => string, money: Money): string {
   const chosen = kindOf(g.action);
   const best = kindOf(g.best);
   const mine = betStats(g, g.action);
@@ -83,17 +91,17 @@ export function evSummary(g: Graded, name: string | undefined, describe: (a: Pla
   if (g.verdict === "good") return reason(g, chosen, mine ?? quotedBet(g), name, describe, money);
   if (chosen === "aggressive" && best === "aggressive") {
     const a = betStats(g, g.best), b = mine;
-    const line = (v: ActionValue) => `${describe(v.action)} ${(v.foldShare ?? 0) < 0.005 ? "gets no folds" : `makes ${who(g, name)} fold ${pct(v.foldShare ?? 0)}`}${v.winWhenCalled === null ? "" : ` and wins ${pct(v.winWhenCalled)} when called`}`;
     const to = (v: ActionValue) => ("to" in v.action ? v.action.to : 0);
+    const f = (v: ActionValue) => pct(v.foldShare ?? 0);
+    const amount = (v: ActionValue) => money(to(v));
     const bigger = a && b && to(a) > to(b);
     const moreFolds = a && b && (a.foldShare ?? 0) > (b.foldShare ?? 0) + 0.05;
     const bluff = (a?.winWhenCalled ?? 1) < BLUFF_BELOW;
-    const fewFold = a && b && (a.foldShare ?? 0) < 0.15 && (b.foldShare ?? 0) < 0.15;
-    const lesson = !a || !b ? ""
-      : bluff ? ` As a bluff, the ${bigger ? "bigger" : "smaller"} bet ${moreFolds ? "gets more folds" : "risks less for about the same folds"}.`
-      : bigger ? ` ${fewFold ? "Few fold either way" : "They still call with worse hands"}, so the bigger bet wins more.`
-      : " The smaller bet keeps more worse hands calling.";
-    const both = a && b ? ` ${capital(line(a))}; ${line(b)}.${lesson}` : "";
+    const both = !a || !b ? ""
+      : bluff && moreFolds ? ` ${amount(a)} gets more folds than ${amount(b)} (${f(a)} vs ${f(b)}).`
+      : bluff ? ` ${amount(a)} gets about the same folds as ${amount(b)} (${f(a)} vs ${f(b)}) and risks less.`
+      : bigger ? ` Worse hands still call the bigger bet (you win ${pct(a.winWhenCalled ?? 0)} when called), so it wins more.`
+      : ` The smaller bet keeps more worse hands calling (they fold ${f(a)} vs ${f(b)}).`;
     const share = g.basis.kind === "ev" && g.basis.opponents > 1 && g.basis.equity > g.fairShare && g.basis.equity < 0.5
       ? ` Why raise at all: with ${g.basis.opponents} opponents an even share of the pot is ${pct(g.fairShare)}, and you win ${pct(g.basis.equity)}, so the more money goes in, the more you make.`
       : "";
@@ -114,18 +122,18 @@ export function evSummary(g: Graded, name: string | undefined, describe: (a: Pla
   return reason(g, best, quotedBet(g), name, describe, money);
 }
 
-/** A check to reuse at any table, matched to the kind of decision. Shown as the key point. */
-export function evRule(g: Graded): string {
-  if (g.basis.kind !== "ev") return "";
+/** A check to reuse at any table, matched to the kind of decision, with its tag. Shown as the key point. */
+export function evRule(g: Graded): { label: string; text: string } {
+  if (g.basis.kind !== "ev") return { label: "", text: "" };
   const best = kindOf(g.best);
   const bet = quotedBet(g);
   if (g.basis.potOddsNeeded !== null && best !== "aggressive")
-    return `Quick check when facing a bet: a half-pot bet needs ${pct(CALL_GUIDE.halfPot)} to call, a pot-size bet ${pct(CALL_GUIDE.fullPot)}. Call when your chance to win is bigger.`;
+    return { label: "Quick check", text: `A half-pot bet needs ${pct(CALL_GUIDE.halfPot)} to call, a pot-size bet ${pct(CALL_GUIDE.fullPot)}. Call when your chance to win is bigger.` };
   if (best === "aggressive" && bet?.winWhenCalled !== null && bet?.winWhenCalled !== undefined && bet.winWhenCalled < BLUFF_BELOW)
-    return `Quick check for a bluff: a half-pot bet must make them fold ${pct(BLUFF_GUIDE.halfPot)} of the time, a pot-size bet ${pct(BLUFF_GUIDE.fullPot)}. Bluff players who fold often.`;
+    return { label: "Quick check", text: `A half-pot bluff must make them fold ${pct(BLUFF_GUIDE.halfPot)} of the time, a pot-size bluff ${pct(BLUFF_GUIDE.fullPot)}. Bluff players who fold often.` };
   if (best !== "aggressive" && g.basis.equity >= 0.5)
-    return "Rule: when you are well ahead and a bet makes them fold most of the time, check and let them catch up a little. Bet again when worse hands will call.";
-  return "Rule: bet when worse hands will call or better hands will fold. If neither, check.";
+    return { label: "Rule", text: "When you are well ahead and a bet makes them fold most of the time, check and let them catch up a little. Bet again when worse hands will call." };
+  return { label: "Rule", text: "Bet when worse hands will call or better hands will fold. If neither, check." };
 }
 
 export function drawLine(g: Graded): string | null {

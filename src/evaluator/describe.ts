@@ -27,6 +27,11 @@ export function handName(score: HandScore, hole?: readonly [Card, Card]): string
     const shared = category === "pair" ? `pair of ${PLURAL[k1!]}` : category === "trips" ? `three ${PLURAL[k1!]}` : `two pair`;
     return shared === "two pair" ? `${NAMES[Math.max(...holeRanks)]} high (the board has two pairs)` : `${NAMES[Math.max(...holeRanks)]} high (the ${shared} is on the board)`;
   }
+  // Two pair where one pair is the board's: say which, so it does not read as two pairs of your own.
+  if (hole && category === "two pair") {
+    const boardPair = [k1!, k2!].find((r) => !holeRanks.includes(r));
+    if (boardPair !== undefined) return `Two pair, ${PLURAL[k1!]} and ${PLURAL[k2!]} (the ${PLURAL[boardPair]} are on the board)`;
+  }
   // Ace high when the Ace is on the board tells you nothing; your own best card is what matters.
   if (hole && category === "high card" && !holeRanks.includes(k1!)) return `No pair, ${NAMES[Math.max(...holeRanks)]} high`;
   switch (category) {

@@ -87,7 +87,7 @@ export function ActionBar({ st, onAct }: Props) {
         {legal.canCheck
           ? <button data-testid="act-check" onClick={() => onAct(passive)}>Check</button>
           : <button data-testid="act-call" onClick={() => onAct(passive)}>Call {money(legal.callAmount, bb)}</button>}
-        {raise && <button className="primary" data-testid="act-raise" onClick={() => setSizing(true)}>{raise.kind === "bet" ? "Bet" : "Raise"}…</button>}
+        {raise && <button data-testid="act-raise" onClick={() => setSizing(true)}>{raise.kind === "bet" ? "Bet" : "Raise"}…</button>}
       </div>
     </div>
   );

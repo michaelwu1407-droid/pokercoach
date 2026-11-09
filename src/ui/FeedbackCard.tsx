@@ -26,7 +26,8 @@ export function FeedbackCard({ f }: { f: Feedback }) {
   return (
     <div className={`feedback tone-${f.tone}`} data-testid="feedback">
       <div className="context">{f.context}</div>
-      <h3 className="feedback-headline">{f.headline}</h3>
+      <h3 className="feedback-headline"><span className="verdict-dot" aria-hidden="true" />{f.headline}</h3>
+      {f.lead && <p className="lead" data-testid="lead">{f.lead}</p>}
       <p className="summary" data-testid="summary">{f.summary}</p>
       <details className="more" data-testid="more" open={open} onToggle={(e) => remember((e.target as HTMLDetailsElement).open)}>
         <summary>More detail</summary>
@@ -34,9 +35,9 @@ export function FeedbackCard({ f }: { f: Feedback }) {
           {f.stats.length > 0 && (
             <ul className="stats" data-testid="stats">
               {f.stats.map((s) => (
-                <li key={s.means} className="stat">
+                <li key={s.label} className="stat">
                   <b className="stat-value">{s.value}</b>
-                  <span className="stat-means">{s.means}</span>
+                  <span className="stat-text"><span className="stat-label">{s.label}</span><span className="stat-detail">{s.detail}</span></span>
                 </li>
               ))}
             </ul>
@@ -48,15 +49,18 @@ export function FeedbackCard({ f }: { f: Feedback }) {
                 {f.mix.map((m, i) => m.share > 0.005 && <span key={m.label} className={MIX_CLASS[i]} style={{ width: `${m.share * 100}%` }} />)}
               </div>
               <ul className="mix-legend">
-                {f.mix.map((m, i) => m.share >= 0.005 && (
+                {f.mix.map((m, i) => m.share >= 0.05 && (
                   <li key={m.label}><i className={MIX_CLASS[i]} />{m.label} {Math.round(m.share * 100)}%</li>
                 ))}
               </ul>
             </div>
           )}
-          <p className="key-point" data-testid="key-point">{f.keyPoint}</p>
-          {f.draw && <p className="draw-line" data-testid="draw-line">{f.draw}</p>}
           {f.read && <p className="read" data-testid="read">{f.read}</p>}
+          <div className="key-point" data-testid="key-point">
+            <span className="key-tag">{f.keyLabel}</span>
+            <p>{f.keyPoint}</p>
+          </div>
+          {f.draw && <p className="draw-line" data-testid="draw-line">{f.draw}</p>}
           {f.details.length > 0 && (
             <details className="details">
               <summary>How this was worked out</summary>
