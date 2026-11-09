@@ -95,7 +95,7 @@ export function feedback(g: Grade, opponents: Opponents, bb: number): Feedback {
   const win: Stat = {
     value: pct(g.win.chance),
     label: `Your chance vs ${who}`,
-    detail: `${g.street === "river" ? "Right now" : "Once all the cards are out"}, against ${names.length === 1 ? "their" : "each one's"} likely hands (below).`,
+    detail: `${g.street === "river" ? "Right now" : "Once all the cards are out"}, against ${names.length === 1 ? "their" : "each one's"} likely hands (below). Your live odds treat their cards as random; this reads their bets too.`,
   };
   const cost: Stat[] = g.verdict !== "good" && g.evLossBB !== null
     ? [{ value: `−${dollars(g.evLossBB)}`, label: "Cost of this choice", detail: "On average, compared with the best play." }]

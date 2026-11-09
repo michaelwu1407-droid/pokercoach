@@ -98,3 +98,7 @@ Chips carry from hand to hand. An opponent who runs out of chips leaves the tabl
 ## 23. Numbers are read as sentences
 
 Each number on a card sits beside one plain line saying what it means ("13%: of all starting hands are worth playing here, about 1 in 8"). Separate labels and explanation lists were removed: too much to read and still unclear. Preflop rules name real hands ("Queen-Jack suited or better") and give a short rule of thumb per situation.
+
+## 24. Live odds beside your cards
+
+The owner asked to see their chance to win as the hand unfolds, with a plain reason for each change, from the deal on. `src/coach/liveOdds.ts` recomputes it at the deal, at each fold and at each new card, against the players still in holding random cards (`src/evaluator/randomEquity.ts`, sampled with a fixed seed). It never uses the opponent read, so it does not reveal the graded answer (invariant 4, amended). The coach's own chance after a decision reads their bets too, and its detail line says so, because the two numbers can differ a lot.

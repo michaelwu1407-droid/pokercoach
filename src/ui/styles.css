@@ -259,3 +259,17 @@ kbd { font: inherit; font-size: 11px; opacity: 0.6; border: 1px solid currentCol
   .seat-stack, .seat-action { font-size: 10.5px; }
   .dealer-button { width: 16px; height: 16px; font-size: 9px; top: -6px; right: -6px; }
 }
+.odds-panel { display: grid; gap: 2px; text-align: center; justify-items: center; }
+.odds-row { display: flex; gap: 14px; align-items: baseline; justify-content: center; flex-wrap: wrap; }
+.odds-hand { color: var(--muted); }
+.odds-hand b { color: var(--ink); }
+.odds-chance { background: var(--card); border: 1px solid var(--border); border-radius: 999px; padding: 2px 12px; font-size: 14px; color: var(--muted); box-shadow: var(--shadow); }
+.odds-chance b { color: var(--ink); font-size: 17px; font-variant-numeric: tabular-nums; }
+.odds-delta { font-size: 12px; font-weight: 800; margin-left: 4px; font-variant-numeric: tabular-nums; }
+.odds-up { color: var(--good); }
+.odds-down { color: var(--bad); }
+.odds-why { margin: 0; font-size: 13.5px; color: var(--ink); max-width: 640px; line-height: 1.4; }
+.odds-history { font-size: 13px; max-width: 640px; text-align: left; }
+.odds-history > summary { cursor: pointer; color: var(--accent); font-weight: 600; text-align: center; list-style: none; }
+.odds-history ol { margin: 6px 0; padding-left: 20px; display: grid; gap: 4px; }
+.odds-history p { margin: 4px 0 0; font-size: 12px; }

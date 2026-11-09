@@ -20,7 +20,7 @@ These follow from the north star. Each one is a rule a test or type must enforce
 1. **No LLM. Poker truth comes from code.** Legality, pot math, equity, range membership, and EV are computed by the engine and evaluator. Every number shown passes the grounding check in `src/coach/grounding.ts`.
 2. **Grade decisions, never outcomes.** Feedback is scored by EV loss of the action taken against the best action. Who won the hand is never an input to grading.
 3. **Every teaching claim is backed.** A claim shown to the learner comes from an evaluator result, a chart, or an opponent profile.
-4. **You decide first.** Nothing hints at the answer before a decision. Feedback comes after.
+4. **You decide first.** Nothing hints at the answer before a decision. Feedback comes after. Live odds beside your cards are allowed because they use only what anyone at the table sees (your cards, the board, how many players are in) and treat opponents' cards as random; they never use the grader's read of opponents.
 5. **The hand is an event log.** Game state is derived by reducing an append-only list of actions. No mutable table object.
 
 ## Teaching rule (from the owner's feedback, applies to every screen)

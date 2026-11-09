@@ -1,4 +1,5 @@
-import { useCallback, useState } from "react";
+import { useCallback, useMemo, useState } from "react";
+import { oddsTimeline } from "../coach/liveOdds";
 import { signedMoney } from "../coach/words";
 import { describeHand } from "../evaluator/describe";
 import { isMiss } from "../grading/types";
@@ -8,6 +9,7 @@ import { HERO, state } from "../session/session";
 import { ActionBar } from "./ActionBar";
 import { CoachPanel } from "./CoachPanel";
 import { Help } from "./Help";
+import { OddsPanel } from "./OddsPanel";
 import { Progress } from "./Progress";
 import { Table } from "./Table";
 import { gameOutcome, tableNews } from "./tableNews";
@@ -31,6 +33,7 @@ export function App() {
   const me = st.seats[HERO]!;
 
   const misses = game.decisions.filter((d) => d.grade?.graded && isMiss(d.grade.verdict)).length;
+  const odds = useMemo(() => oddsTimeline(game.shown.events, HERO), [game.shown.events]);
   const outcome = st.phase === "complete" ? gameOutcome(game.hand) : "playing";
   const net = st.phase === "complete" ? (st.payouts.find((p) => p.seat === HERO)?.amount ?? 0) - me.total : 0;
   const next = answered ? game.nextDrill : handOver ? game.nextHand : game.playing ? game.skip : null;
@@ -58,9 +61,7 @@ export function App() {
             )}
             <Table st={st} events={game.shown.events} onSkip={game.skip} />
             <div className="controls">
-              <p className="you-have" data-testid="you-have">
-                {me.folded ? "You folded" : "You have"}: <b>{describeHand(me.hole, st.board)}</b>
-              </p>
+              <OddsPanel hand={describeHand(me.hole, st.board)} folded={me.folded} over={st.phase === "complete"} steps={odds} />
               <div className="next-row">
                 {heroTurn && <ActionBar key={decisionKey} st={st} onAct={game.act} />}
                 {answered && <button className="primary wide" data-testid="next-drill" onClick={game.nextDrill}>Next</button>}

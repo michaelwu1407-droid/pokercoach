@@ -44,6 +44,8 @@ try {
   await page.getByTestId("help").waitFor({ state: "hidden" });
   await page.getByTestId("table").waitFor();
   assert.match(await page.getByTestId("you-have").innerText(), /You have: /);
+  assert.match(await page.getByTestId("odds-chance").innerText(), /\d+% to win/, "live odds show from the deal");
+  assert.ok((await page.getByTestId("odds-why").innerText()).length > 20, "starting odds come with a reason");
   const seen = { keyed: 0, sized: 0, skipped: 0, feedback: 0, mix: 0, read: 0, reviews: 0, recaps: 0, reopened: 0, hands: 0, decisions: 0, maxButtons: 0 };
   let lastFeedback = "";
 
