@@ -2,6 +2,7 @@ import type { Opponents } from "../bots/opponents";
 import type { PlayerAction, Street } from "../engine/types";
 import type { MixShare } from "../grading/rangeMix";
 import { aggressive, type Grade, type Graded, type Verdict, type Win } from "../grading/types";
+import { handWords } from "./chartWords";
 import { chartKeyPoint, chartSummary, drawLine, evKeyPoint, pct, quotedBet } from "./reasons";
 import { allInLabel, dollars, money, seatName, signedMoney } from "./words";
 
@@ -91,7 +92,10 @@ export function feedback(g: Grade, opponents: Opponents, bb: number): Feedback {
     return {
       ...base, mix: null, read: null, draw: null, details: [g.basis.source], caveats: [],
       summary: chartSummary(g, describe),
-      stats: [{ value: pct(g.basis.continueShare), means: `of all starting hands are worth playing here, about 1 in ${g.basis.playOneIn}. Fold the rest.` }, win],
+      stats: [{
+        value: pct(g.basis.continueShare),
+        means: `of hands are worth playing here. The app's list for this spot has ${g.basis.listSize} of the ${g.basis.allHands.toLocaleString("en-US")} possible starting hands. ${handWords(g.basis.handClass)} ${g.basis.bestMove === "fold" ? "is not on it" : "is on it"}.`,
+      }, win],
       keyPoint: chartKeyPoint(g, opponents),
     };
   }

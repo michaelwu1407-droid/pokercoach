@@ -1,10 +1,11 @@
 import { RANK_LABELS, RANKS } from "../cards/card";
 import type { Grade } from "../grading/types";
 
-const NUMBER = /\d+(?:\.\d+)?/g;
+/** A number as printed, thousands separators included: "1,326" is one number. */
+const NUMBER = /\d{1,3}(?:,\d{3})+(?:\.\d+)?|\d+(?:\.\d+)?/g;
 /** A hand class such as "97s". Its card names may be printed, and they are not computed figures. */
 const HAND_CLASS = /^[2-9TJQKA]{2}[so]?$/;
-const canon = (n: string) => String(Number(n));
+const canon = (n: string) => String(Number(n.replace(/,/g, "")));
 
 /** Every number the grader produced, in each format the coach is allowed to print it. */
 export function allowedNumbers(g: Grade, bigBlind: number): Set<string> {

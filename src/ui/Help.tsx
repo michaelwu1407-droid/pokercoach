@@ -36,6 +36,7 @@ export const WORDS = [
   ["Call", "Match the current bet."],
   ["Raise / re-raise", "Make the bet bigger. A re-raise is a raise after someone else raised."],
   ["Raise to $8", "Your total bet becomes $8, including anything you already put in this round."],
+  ["\"13% of hands\"", "There are 1,326 different two-card hands you can be dealt (52 × 51, halved because the order does not matter). 13% means 13 out of every 100 of them, about 174 hands."],
   ["Kicker", "Your other card when two players share a pair. A-K beats A-10 on an ace-high board because the king kicks higher."],
   ["Fold", "Give up the hand and anything you put in."],
   ["Bluff", "Bet with a weak hand so that better hands fold."],

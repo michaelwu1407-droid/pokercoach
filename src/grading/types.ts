@@ -35,6 +35,9 @@ export type Basis =
       readonly callShare: number;
       /** raiseShare + callShare. */
       readonly continueShare: number;
+      /** How many of the ALL_HANDS starting hands the chart plays here: continueShare = listSize / allHands. */
+      readonly listSize: number;
+      readonly allHands: number;
       /** 1 - continueShare: the hands to fold. */
       readonly foldShare: number;
       /** Players still to act after you this round. */
