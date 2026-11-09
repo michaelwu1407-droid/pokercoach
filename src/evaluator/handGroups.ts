@@ -24,6 +24,8 @@ export interface HandGroup {
   readonly combos: number;
   /** Every hand in the group is suited. */
   readonly allSuited: boolean;
+  /** The lowest second card in the group (the pair's rank for pairs): "Ace-Jack or better" when it is a Jack. */
+  readonly lowRank: number;
 }
 
 export function groupsOf(set: Iterable<HandClass>): HandGroup[] {
@@ -31,7 +33,8 @@ export function groupsOf(set: Iterable<HandClass>): HandGroup[] {
   return GROUP_ORDER.flatMap((kind) => {
     const inKind = classes.filter((c) => groupOf(c) === kind);
     if (inKind.length === 0) return [];
-    return [{ kind, combos: rangeCombos(inKind).length, allSuited: kind !== "pair" && inKind.every((c) => c[2] === "s") }];
+    const lowRank = Math.min(...inKind.map((c) => RANKS.indexOf(c[1] ?? "")));
+    return [{ kind, combos: rangeCombos(inKind).length, allSuited: kind !== "pair" && inKind.every((c) => c[2] === "s"), lowRank }];
   });
 }
 

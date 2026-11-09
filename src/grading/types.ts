@@ -14,6 +14,11 @@ export interface ActionValue {
   /** For a bet or raise: how often everyone folds to it, and your chance to win when someone continues. */
   readonly foldShare: number | null;
   readonly winWhenCalled: number | null;
+  /** For a bet or raise: how often everyone must fold for it to pay off on folds alone. Set by grade(). */
+  readonly foldNeeded?: number;
+  /** What the bet adds, and the pot once it is in: foldNeeded = risk ÷ potWithBet. Set by grade(). */
+  readonly risk?: number;
+  readonly potWithBet?: number;
 }
 
 export type Basis =
@@ -94,9 +99,16 @@ export interface Facing {
 
 /** Shares to win needed against a half-pot and a pot-size bet: the two to remember. */
 export const CALL_GUIDE = { halfPot: 1 / 4, fullPot: 1 / 3 } as const;
+/** How often they must fold for a half-pot and a pot-size bluff to pay off. */
+export const BLUFF_GUIDE = { halfPot: 1 / 3, fullPot: 1 / 2 } as const;
 
 export interface Graded {
   readonly graded: true;
+  /** Chips in the pot when you decided, and what you had already put in this round. */
+  readonly pot: number;
+  readonly committed: number;
+  /** An even share of the pot among everyone still in: 1 ÷ players. Beating it is why raising a big pot pays. */
+  readonly fairShare: number;
   readonly street: Street;
   readonly seat: SeatIndex;
   readonly action: PlayerAction;
@@ -122,7 +134,7 @@ export interface Ungraded {
 
 export type Grade = Graded | Ungraded;
 /** What each grader returns. `grade` adds your chance to win and any draw. */
-export type GradeCore = Omit<Graded, "win" | "draw" | "facing" | "allInTo"> | Ungraded;
+export type GradeCore = Omit<Graded, "win" | "draw" | "facing" | "allInTo" | "pot" | "committed" | "fairShare"> | Ungraded;
 
 /** Mistakes and blunders: the decisions that count against you and come back as practice. */
 export const isMiss = (v: Verdict) => v === "mistake" || v === "blunder";

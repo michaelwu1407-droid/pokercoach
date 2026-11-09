@@ -25,7 +25,7 @@ const ALL_HANDS = ALL_CLASSES.flatMap((c) => combosOf(c)).map((combo) => ({ comb
  * Your chance to win at the decision. After the flop it is against everyone still in. Preflop it is
  * against the players who have put money in, or one random hand when nobody has.
  */
-function winAt(ctx: DecisionContext, core: Omit<Graded, "win" | "draw" | "facing" | "allInTo">): Win {
+function winAt(ctx: DecisionContext, core: Omit<Graded, "win" | "draw" | "facing" | "allInTo" | "pot" | "committed" | "fairShare">): Win {
   const { state: st, action, events, styles } = ctx;
   const hero = action.seat;
   if (core.basis.kind === "ev") {
@@ -80,11 +80,25 @@ export function grade(ctx: DecisionContext): Grade {
   const core = gradeCore(ctx);
   if (!core.graded) return core;
   const me = st.seats[action.seat]!;
+  // A bet risks what you add to win the pot: it pays off on folds alone when they fold more than risk ÷ (pot + risk).
+  const pot = potSize(st);
+  const basis = core.basis.kind !== "ev" ? core.basis : {
+    ...core.basis,
+    values: core.basis.values.map((v) => {
+      if (!("to" in v.action)) return v;
+      const risk = v.action.to - me.street;
+      return { ...v, foldNeeded: risk / (pot + risk), risk, potWithBet: pot + risk };
+    }),
+  };
   return {
     ...core,
+    basis,
     win: winAt(ctx, core),
     draw: drawOf(me.hole, st.board),
     facing: facingAt(st),
     allInTo: me.street + me.stack,
+    pot,
+    committed: me.street,
+    fairShare: 1 / st.seats.filter((x) => !x.folded).length,
   };
 }
