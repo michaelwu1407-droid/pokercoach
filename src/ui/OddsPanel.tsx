@@ -3,7 +3,7 @@ import type { OddsStep } from "../coach/liveOdds";
 const pct = (x: number) => `${Math.round(x * 100)}%`;
 
 function Delta({ d }: { d: number | null }) {
-  if (d === null || Math.abs(d) < 0.005) return null;
+  if (d === null || Math.round(Math.abs(d) * 100) === 0) return null;
   const up = d > 0;
   return <span className={`odds-delta ${up ? "odds-up" : "odds-down"}`}>{up ? "▲" : "▼"} {Math.round(Math.abs(d) * 100)}</span>;
 }
@@ -21,7 +21,7 @@ export function OddsPanel({ hand, folded, over, steps }: { hand: string; folded:
         <span className="odds-hand" data-testid="you-have">{folded ? "You folded" : "You have"}: <b>{hand}</b></span>
         {!folded && last && (
           <span className="odds-chance" data-testid="odds-chance">
-            <b>{pct(last.chance)}</b> to win <Delta d={last.delta} />
+            <b>{pct(last.chance)}</b> to win <Delta d={last.delta} /> <span className="odds-basis">vs random hands</span>
           </span>
         )}
       </div>

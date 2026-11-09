@@ -1,7 +1,7 @@
 import { type Card, RANK_LABELS, rankOf, RANKS, suitOf } from "../cards/card";
 import { apply, start } from "../engine/reduce";
 import type { HandEvent, HandState, SeatIndex } from "../engine/types";
-import { describeHand, NAMES } from "../evaluator/describe";
+import { describeHand, NAMES, PLURAL } from "../evaluator/describe";
 import { categoryOf, CATEGORIES, evaluate } from "../evaluator/handRank";
 import { equityVsRandom } from "../evaluator/randomEquity";
 import { classOf } from "../evaluator/ranges";
@@ -33,12 +33,46 @@ const opponentsIn = (st: HandState, hero: SeatIndex) => st.seats.filter((s, i) =
 function startNote(hole: readonly [Card, Card]): string {
   const cls = classOf(hole);
   const [a, b] = [RANKS.indexOf(cls[0]!), RANKS.indexOf(cls[1]!)];
+  const ten = RANKS.indexOf("T");
   if (a === b) return "A pair before the flop is a strong start";
   if (a === 12) return "An Ace can make the best pair";
-  if (b >= 8) return "Two high cards make strong pairs";
+  if (b >= ten) return "Two high cards make strong pairs";
   if (cls[2] === "s" && a - b <= 2) return "Same suit and close together: it can make a flush or a straight";
+  if (a >= ten) return "One high card: it usually needs to pair to win";
   if (cls[2] === "s") return "Same suit gives a small chance of a flush";
-  return "Low cards that do not work together rarely win";
+  return "Two low cards rarely win";
+}
+
+/** The cards still to come that complete your draw: "any Six or Two", "any ♠". */
+function outsText(hole: readonly [Card, Card], board: readonly Card[]): string {
+  const seen = new Set<Card>([...hole, ...board]);
+  const now = CATEGORIES.indexOf(categoryOf(evaluate([...hole, ...board])));
+  const straight = CATEGORIES.indexOf("straight");
+  const ranks = new Set<number>(), suits = new Set<number>();
+  for (let c = 0; c < 52; c++) {
+    const card = c as Card;
+    if (seen.has(card)) continue;
+    const cat = categoryOf(evaluate([...hole, ...board, card]));
+    if (CATEGORIES.indexOf(cat) <= Math.max(now, straight - 1)) continue;
+    if (cat === "flush") suits.add(suitOf(card)); else if (cat === "straight") ranks.add(rankOf(card));
+  }
+  const parts = [...[...ranks].sort((x, y) => y - x).map((r) => `${r === 8 ? "Ten" : NAMES[r]}`), ...[...suits].map((u) => SUIT[u]!)];
+  return parts.length === 0 ? "" : ` (any ${parts.length < 2 ? parts[0] : `${parts.slice(0, -1).join(", ")} or ${parts[parts.length - 1]}`})`;
+}
+
+/** The danger a new card brings for others, named. */
+function danger(hole: readonly [Card, Card], before: readonly Card[], after: readonly Card[]): string {
+  const suitCount = (b: readonly Card[]) => Math.max(...[0, 1, 2, 3].map((u) => b.filter((c) => suitOf(c) === u).length));
+  const mine = categoryOf(evaluate([...hole, ...after]));
+  const flushSuit = [0, 1, 2, 3].find((u) => after.filter((c) => suitOf(c) === u).length >= 3);
+  if (flushSuit !== undefined && suitCount(before) < 3 && mine !== "flush") return `puts three ${SUIT[flushSuit]} on the board: anyone holding two ${SUIT[flushSuit]} has a flush`;
+  const pairRank = mine === "pair" ? (rankOf(hole[0]) === rankOf(hole[1]) ? rankOf(hole[0]) : hole.map(rankOf).find((r) => after.some((c) => rankOf(c) === r))) : undefined;
+  const top = Math.max(...after.slice(before.length).map(rankOf));
+  if (pairRank !== undefined && top > pairRank) return `is higher than your pair: anyone holding a ${NAMES[top]} now beats you`;
+  const ranks = [...new Set(after.map(rankOf))].sort((x, y) => x - y);
+  if (ranks.some((r, i) => i >= 2 && r - ranks[i - 2]! <= 4)) return after.length === 3 ? "has cards close in rank, so others can make or draw to a straight" : "puts cards close in rank on the board, so others can make or draw to a straight";
+  if (after.length === 3 && suitCount(after) === 2) return "has two cards of one suit, so others may be drawing to a flush";
+  return "did not help you, and it gives the others new ways to win";
 }
 
 const lowerFirst = (t: string) => t[0]!.toLowerCase() + t.slice(1);
@@ -54,23 +88,28 @@ function boardCategory(board: readonly Card[]): number {
 function streetReason(hole: readonly [Card, Card], before: readonly Card[], after: readonly Card[], street: keyof typeof STREET, delta: number): string {
   const shown = after.slice(before.length).map(cardText).join(" ");
   const cat = (b: readonly Card[]) => CATEGORIES.indexOf(categoryOf(evaluate([...hole, ...b])));
+  const startCat = rankOf(hole[0]) === rankOf(hole[1]) ? CATEGORIES.indexOf("pair") : 0;
   const drawBefore = before.length >= 3 ? drawOf(hole, before) : null;
   const drawAfter = after.length < 5 ? drawOf(hole, after) : null;
   const head = `The ${STREET[street]} (${shown})`;
-  // A card that pairs the board helps everyone, unless your own card matches it.
+  const river = street === "river";
   const newRank = rankOf(after[after.length - 1]!);
+  // A card that pairs the board helps everyone, unless your own card matches it.
+  const pairedRank = after.map(rankOf).find((r, i, all) => all.indexOf(r) !== i);
+  if (before.length < 3 && pairedRank !== undefined && !hole.some((c) => rankOf(c) === pairedRank) && delta <= 0)
+    return `${head} has a pair of ${PLURAL[pairedRank]}: anyone holding a ${NAMES[pairedRank]} has three of a kind.`;
   if (before.length >= 3 && boardCategory(after) > boardCategory(before) && !hole.some((c) => rankOf(c) === newRank))
-    return `${head} paired the board, which helps anyone holding a ${NAMES[newRank]}.`;
+    return delta > 0 ? `${head} paired the board with a card few players hold: it changes little.` : `${head} paired the board, which helps anyone holding a ${NAMES[newRank]}.`;
   // Only an improvement your own cards take part in counts: a pair on the board belongs to everyone.
-  const improved = cat(after) > (before.length >= 3 ? cat(before) : 0) && cat(after) > boardCategory(after);
+  const improved = cat(after) > (before.length >= 3 ? cat(before) : startCat) && cat(after) > boardCategory(after);
   if (improved) return `${head} gave you ${lowerFirst(describeHand(hole, after)).replace(/^pair/, "a pair")}.`;
   if (drawAfter && (!drawBefore || drawAfter.outs > drawBefore.outs)) {
-    const draw = `a ${drawAfter.name}: ${drawAfter.outs} cards left can complete it`;
-    return delta < -0.02 ? `${head} gave you ${draw}, but no pair yet, and it can help the others too.` : `${head} gave you ${draw}.`;
+    const outs = outsText(hole, after);
+    return cat(after) === 0 ? `${head}: no pair yet, but ${drawAfter.outs} cards make you a ${drawAfter.name.replace(/ draw$/, "")}${outs}.` : `${head} added a ${drawAfter.name}: ${drawAfter.outs} cards complete it${outs}.`;
   }
-  if (drawBefore && street === "river") return `${head}: your ${drawBefore.name} missed.`;
-  if (delta < -0.02) return `${head} did not help you, and cards like these can help the others.`;
-  if (delta > 0.02) return `${head} did not help you, but it is unlikely to help the others either, and fewer cards are left to beat you.`;
+  if (drawBefore && river) return delta >= -0.02 && cat(after) > 0 ? `${head}: your ${drawBefore.name} missed, but your ${lowerFirst(describeHand(hole, after))} still holds up.` : `${head}: your ${drawBefore.name} missed.`;
+  if (delta < -0.02) return `${head} ${danger(hole, before, after)}.`;
+  if (delta > 0.02) return `${head} is a safe card: it helps nobody, so your hand holds up more often${river ? ", and no cards are left to come" : ""}.`;
   return `${head} changed little for you.`;
 }
 
@@ -84,10 +123,11 @@ export function oddsTimeline(events: readonly HandEvent[], hero: SeatIndex): Odd
   const n0 = opponentsIn(st, hero);
   const c0 = odds(hole, st.board, n0);
   const average = 1 / (n0 + 1);
-  const versus = Math.abs(c0 - average) < 0.03 ? "about average" : c0 > average ? "better than average" : "worse than average";
+  const ratio = c0 / average;
+  const versus = ratio > 1.4 ? "much better" : ratio > 1.1 ? "a bit better" : ratio < 0.7 ? "much worse" : ratio < 0.9 ? "a bit worse" : "about the same";
   const steps: OddsStep[] = [{
     chance: c0, delta: null,
-    reason: `Against ${n0} players an average hand wins ${pct(average)}, so ${describeHand(hole, []).replace("Pocket", "pocket")} at ${pct(c0)} is ${versus}. ${startNote(hole)}.`,
+    reason: `${pct(average)} is a fair share against ${n0} other player${n0 === 1 ? "" : "s"}; ${describeHand(hole, []).replace("Pocket", "pocket")} at ${pct(c0)} is ${versus}. ${startNote(hole)}.`,
   }];
   for (const a of actions) {
     if (a.type === "start") break;
@@ -97,7 +137,8 @@ export function oddsTimeline(events: readonly HandEvent[], hero: SeatIndex): Odd
     const prev = steps[steps.length - 1]!.chance;
     if (a.type === "fold" && a.seat !== hero) {
       const c = odds(hole, before.board, opponentsIn(st, hero));
-      steps.push({ chance: c, delta: c - prev, reason: opponentsIn(st, hero) === 0 ? `${names[a.seat]} folded: everyone else is out, so you win the pot.` : `${names[a.seat]} folded: one fewer hand to beat.` });
+      steps.push({ chance: c, delta: c - prev, reason: opponentsIn(st, hero) === 0 ? `${names[a.seat]} folded: everyone else is out, so you win the pot.`
+        : opponentsIn(st, hero) <= 2 ? `${names[a.seat]} folded: one fewer hand to beat. With few players left, each fold counts for more.` : `${names[a.seat]} folded: one fewer hand to beat.` });
     }
     if (st.board.length > before.board.length && st.phase === "betting") {
       const p = steps[steps.length - 1]!.chance;
