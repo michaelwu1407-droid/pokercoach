@@ -46,7 +46,7 @@ export function FeedbackCard({ f }: { f: Feedback }) {
             <div className="mix" data-testid="range-mix">
               <div className="micro-label">What they likely have</div>
               <div className="mix-bar">
-                {f.mix.map((m, i) => m.share > 0.005 && <span key={m.label} className={MIX_CLASS[i]} style={{ width: `${m.share * 100}%` }} />)}
+                {f.mix.map((m, i) => m.share >= 0.05 && <span key={m.label} className={MIX_CLASS[i]} style={{ flexGrow: m.share }} />)}
               </div>
               <ul className="mix-legend">
                 {f.mix.map((m, i) => m.share >= 0.05 && (
@@ -62,11 +62,11 @@ export function FeedbackCard({ f }: { f: Feedback }) {
           </div>
           {f.draw && <p className="draw-line" data-testid="draw-line">{f.draw}</p>}
           {f.details.length > 0 && (
-            <details className="details">
-              <summary>How this was worked out</summary>
+            <div className="details">
+              <div className="micro-label">How this was worked out</div>
               {f.details.map((d) => <p key={d}>{d}</p>)}
               {f.caveats.map((c) => <p key={c} className="muted">{c}</p>)}
-            </details>
+            </div>
           )}
         </div>
       </details>

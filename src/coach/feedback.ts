@@ -70,7 +70,9 @@ const kindOf = (a: PlayerAction) => (a.type === "fold" ? "fold" : aggressive(a) 
 function headline(g: Graded, bb: number): string {
   const best = capital(describeAction(g.best, bb, g.allInTo));
   switch (g.verdict) {
-    case "good": if (kindOf(g.action) !== kindOf(g.best)) return `Close call. ${capital(g.action.type)} and ${g.best.type} are about even`;
+    case "good":
+      if (g.action.type === "call" && g.basis.kind === "ev" && g.basis.potOddsNeeded !== null && g.basis.equity < g.basis.potOddsNeeded) return "Close. Call is fine";
+      if (kindOf(g.action) !== kindOf(g.best)) return `Close call. ${capital(g.action.type)} and ${g.best.type} are about even`;
       return `Good ${g.action.type === "bet" || g.action.type === "raise" ? (g.action.to === g.allInTo ? "all-in" : g.action.type) : g.action.type}`;
     case "small": return aggressive(g.action) && aggressive(g.best) ? `Right idea. ${best} was better` : `Close. ${best} was slightly better`;
     case "mistake": return aggressive(g.action) && aggressive(g.best) ? `Right idea, wrong size. ${best} was better` : `Mistake. ${best} was better`;

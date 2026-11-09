@@ -67,7 +67,7 @@ export function App() {
                 {handOver && (
                   <div className="hand-over" data-testid="review">
                     <span>
-                      {signedMoney(net, bb)} this hand{drilling ? "" : ` · ${signedMoney(game.table.net + net, bb)} this game`}
+                      {signedMoney(net, bb)} profit this hand{drilling ? "" : ` · ${signedMoney(game.table.net + net, bb)} this game`}
                       {!drilling && outcome === "lost" ? " · You are out of chips. Next hand starts a new game." : ""}
                       {!drilling && outcome === "won" ? " · You won: everyone else is out of chips!" : ""}
                       {misses > 0 ? ` · ${misses} mistake${misses > 1 ? "s" : ""} saved for practice` : ""}

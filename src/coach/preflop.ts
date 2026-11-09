@@ -132,9 +132,6 @@ export function preflopStats(g: Graded, o: Opponents): { value: string; label: s
   const label = names.length === 0 ? "Your chance vs one random hand" : `Your chance vs ${and(names)}`;
   const mostly = names.length === 1 && g.win.theirs
     ? ` ${names[0]}'s ${b.spot === "vs-limp" ? "calls" : "raises"} here are mostly ${kindsText(g.win.theirs.mostly)}.` : "";
-  // A wild player's raises are mostly weak hands: say so, or "best 20%" in the why line reads as a contradiction.
-  const loose = names.length === 1 && g.win.theirs && !g.win.theirs.mostly.includes("pair") && b.spot !== "vs-limp"
-    ? ` ${names[0]} raises far more hands than most players.` : "";
-  const detail = names.length === 0 ? "If all five cards are dealt. Nobody else has put chips in yet." : `If all five cards are dealt.${mostly}${loose}`;
+  const detail = names.length === 0 ? "If all five cards are dealt. Nobody else has put chips in yet." : `If all five cards are dealt.${mostly}`;
   return [list, { value: pct(g.win.chance), label, detail }];
 }

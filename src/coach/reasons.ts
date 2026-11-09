@@ -53,7 +53,7 @@ function reason(g: Graded, kind: Kind, bet: ActionValue | null, name: string | u
       const start = `${called < 0.005 ? "You never win if called" : `You rarely win if called (${pct(called)}, mostly better hands call)`}, so this is a bluff. On folds alone it needs ${pct(bet.foldNeeded)} (${money(bet.risk)} ÷ ${money(bet.potWithBet)}, your bet plus the pot).`;
       return fold >= bet.foldNeeded
         ? `${start} ${capital(them)} folds ${pct(fold)}: ${move}.`
-        : `${start} ${capital(them)} folds ${pct(fold)}, about break-even, and the hands you still win tip it: ${move}.`;
+        : `${start} ${capital(them)} folds ${pct(fold)}, about break-even, and the ${pct(called)} you win when called makes up the gap: ${move}.`;
     }
     if (fold < 0.3 && (called ?? equity) >= 0.5)
       return `${capital(move)}: ${them} ${fold < 0.005 ? "never folds" : `rarely folds (${pct(fold)})`} but calls with worse hands, and when called you win ${pct(called ?? equity)}.`;
@@ -77,8 +77,15 @@ const capital = (s: string) => s[0]!.toUpperCase() + s.slice(1);
 
 /** The specific reason for this decision, in one or two sentences. Shown as the card's summary. */
 export function evSummary(g: Graded, name: string | undefined, describe: (a: PlayerAction) => string, money: Money): string {
-  const text = summaryText(g, name, describe, money);
-  return g.boardPlays ? `Your best hand is the board itself, which everyone shares, so at best you split the pot. ${text}` : text;
+  // The board is everyone's hand: the only question is whether a split is worth paying for.
+  if (g.boardPlays) {
+    const move = kindOf(g.best);
+    const end = move === "fold" ? "Even half the pot is not worth what it costs here: fold."
+      : move === "aggressive" ? `A bet wins the whole pot only when ${who(g, name)} folds: ${describe(g.best)}.`
+      : g.best.type === "call" ? "Calling is cheap for half the pot, and raising wins nothing extra: call." : "Betting wins nothing extra: check.";
+    return `Everyone shares the board's hand, so at best you split the pot. ${end}`;
+  }
+  return summaryText(g, name, describe, money);
 }
 
 function summaryText(g: Graded, name: string | undefined, describe: (a: PlayerAction) => string, money: Money): string {
