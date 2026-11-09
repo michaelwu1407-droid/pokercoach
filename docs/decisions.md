@@ -29,7 +29,7 @@ Every number comes from code, and every lesson is a template filled with grader 
 
 ## 6. Opponents are random and hidden
 
-Each table seats five random styles, repeats allowed, and each player gets their own thresholds within 15% of their style. The table changes every 25 hands. Styles are hidden at the table and revealed in feedback after you act against them, so reads are learned from evidence.
+Each table seats five random styles, repeats allowed, and each player gets their own thresholds within 15% of their style. New players arrive only with a new game (decision 22). Styles are hidden at the table and revealed in feedback after you act against them, so reads are learned from evidence.
 
 ## 7. Feedback after every decision, and no pauses
 

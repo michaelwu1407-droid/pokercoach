@@ -27,7 +27,7 @@ All deterministic code.
 
 1. **Game engine.** Deals, enforces legal actions, computes side pots, runs showdown. A hand is an event log reduced to state.
 2. **Evaluator.** Hand ranking, equity against a range, pot odds, and preflop charts for opening, facing limpers, a raise, a re-raise and a 4-bet.
-3. **Opponents.** Four styles (nit, regular, maniac, calling station). Each table seats five random styles, each player with their own thresholds. The table changes every 25 hands.
+3. **Opponents.** Four styles (nit, regular, maniac, calling station). Each table seats five random styles, each player with their own thresholds. Broke players leave; a new game seats five new players.
 4. **Grader.** Infers the opponent's range from their known strategy, prices every option you could have clicked, and grades your choice by EV lost.
 5. **Coach.** Turns a grade into one feedback card: a one-line summary and a "More detail" section.
 6. **Learner model.** A log of graded decisions for progress, and saved mistakes that return as practice until answered right.
