@@ -67,6 +67,12 @@ try {
   await page.keyboard.press("Escape");
   await page.getByTestId("help").waitFor({ state: "hidden" });
   await page.getByTestId("table").waitFor();
+  const sound = page.getByTestId("sound-toggle");
+  assert.equal(await sound.getAttribute("aria-pressed"), "true", "sound starts on");
+  await sound.click();
+  assert.equal(await sound.getAttribute("aria-pressed"), "false", "sound turns off");
+  assert.equal(await page.evaluate(() => localStorage.getItem("pokercoach.sound")), "off", "the choice is remembered");
+  await sound.click();
   assert.match(await page.getByTestId("you-have").innerText(), /^(Pocket \w+|\w+-\w+ (suited|offsuit))$/, "your starting hand is named under your cards");
   assert.match(await page.getByTestId("odds-chance").innerText(), /\d+% to win/, "live odds show from the deal");
   assert.ok((await page.getByTestId("odds-why").innerText()).length > 20, "starting odds come with a reason");

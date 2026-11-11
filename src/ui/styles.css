@@ -223,3 +223,10 @@ kbd { font: inherit; font-size: 11px; opacity: 0.6; border: 1px solid currentCol
 .trainer-warning-actions { display: flex; gap: 8px; flex-wrap: wrap; }
 .lead-list { list-style: none; margin: 6px 0 0; padding: 0; display: flex; flex-wrap: wrap; gap: 6px; }
 .lead-list li { background: var(--soft); color: var(--ink); border-radius: 999px; padding: 3px 10px; font-size: 13px; }
+.sound-toggle[aria-pressed="false"] { color: var(--muted); }
+@media (max-width: 600px) { .hide-phone { display: none; } }
+@media (max-width: 600px) {
+  .topbar { gap: 6px; }
+  .topbar button { padding: 7px 10px; font-size: 14px; }
+  .brand-word { display: none; }
+}

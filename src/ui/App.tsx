@@ -25,6 +25,8 @@ function saveTrainer(on: boolean) {
   try { localStorage.setItem(TRAINER_KEY, on ? "1" : "0"); } catch { /* Blocked storage: the choice lasts for this page only. */ }
 }
 import { useKeys } from "./useKeys";
+import { isMuted, setMuted } from "./sound";
+import { useTableSounds } from "./useTableSounds";
 
 export function App() {
   const game = useGame();
@@ -32,6 +34,7 @@ export function App() {
   // First visit opens the guide, so someone new to poker knows the hands and the words.
   const [help, setHelp] = useState(() => game.learner.log.length === 0);
   const [trainerOn, setTrainerOn] = useState(readTrainer);
+  const [soundOn, setSoundOn] = useState(() => !isMuted());
   // Everything on the table follows the hand as played out so far, so opponents act one at a time.
   const st = state(game.shown);
   const bb = st.config.bigBlind;
@@ -42,6 +45,7 @@ export function App() {
   const due = drillQueue(game.learner, Date.now()).length;
   const decisionKey = `${game.hand.seed}:${game.shown.events.length}:${game.mode.kind === "drill" ? game.mode.index : "play"}`;
   const me = st.seats[HERO]!;
+  useTableSounds(st, game.shown.events);
 
   // The trainer is for play only: in practice it would hand you the answer to the spot you missed.
   const trainerSpot = heroTurn && !drilling ? game.hand : null;
@@ -59,7 +63,7 @@ export function App() {
   return (
     <div className="app">
       <header className="topbar">
-        <span className="brand"><span className="brand-mark" aria-hidden="true">♠</span>pokercoach</span>
+        <span className="brand"><span className="brand-mark" aria-hidden="true">♠</span><span className="brand-word">pokercoach</span></span>
         {drilling
           ? <button data-testid="stop-drills" onClick={game.stopDrills}>Stop practice</button>
           : due > 0 && page === "table" && <button className="primary" data-testid="start-drills" onClick={game.startDrills}>Practise {due} mistake{due > 1 ? "s" : ""}</button>}
@@ -68,6 +72,10 @@ export function App() {
         </button>
         <button data-testid="trainer-toggle" aria-pressed={trainerOn} className={trainerOn ? "toggle-on" : ""}
           onClick={() => { setTrainerOn(!trainerOn); saveTrainer(!trainerOn); }}>Trainer: {trainerOn ? "On" : "Off"}</button>
+        <button data-testid="sound-toggle" aria-pressed={soundOn} className="sound-toggle"
+          onClick={() => { setSoundOn(!soundOn); setMuted(soundOn); }}>
+          <span aria-hidden="true">♪</span> <span className="hide-phone">Sound </span>{soundOn ? "on" : "off"}
+        </button>
         <button data-testid="help-button" aria-label="How to play" onClick={() => setHelp(true)}>?</button>
       </header>
       {page === "table" ? (
