@@ -82,12 +82,13 @@ export function useGame() {
     return () => clearTimeout(t);
   }, [playing, s.shown]);
 
-  const act = useCallback((action: PlayerAction) => {
+  /** Plays your action. The trainer may pass the grade it already has, and marks moves it helped with. */
+  const act = useCallback((action: PlayerAction, opts: { grade?: Grade; assisted?: boolean } = {}) => {
     const before = s.hand;
     const index = s.decisions.length;
-    const origin = s.mode.kind === "drill" ? "drill" : "play";
+    const origin = opts.assisted ? "assisted" : s.mode.kind === "drill" ? "drill" : "play";
     dispatch({ type: "act", action, next: s.mode.kind === "drill" ? before : advance(before, action) });
-    void gradeLater(before, action).then((grade) => {
+    void (opts.grade ? Promise.resolve(opts.grade) : gradeLater(before, action)).then((grade) => {
       dispatch({ type: "graded", index, grade });
       const ids = grade.graded ? conceptsAt(state(before), before.opponents, CORE_CONCEPTS).map((c) => c.id) : [];
       setLearner((l) => learnFrom(l, grade, ids, before, origin, Date.now()));

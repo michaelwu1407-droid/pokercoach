@@ -10,7 +10,7 @@ const isNumber = (v: unknown): v is number => typeof v === "number" && Number.is
 const isStrings = (v: unknown): v is string[] => Array.isArray(v) && v.every((x) => typeof x === "string");
 
 function isLogEntry(v: unknown): v is LogEntry {
-  return isObject(v) && isNumber(v.at) && (v.origin === "play" || v.origin === "drill") && VERDICTS.some((x) => x === v.verdict)
+  return isObject(v) && isNumber(v.at) && (v.origin === "play" || v.origin === "drill" || v.origin === "assisted") && VERDICTS.some((x) => x === v.verdict)
     && (v.evLossBB === null || isNumber(v.evLossBB)) && isStrings(v.conceptIds);
 }
 

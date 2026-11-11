@@ -17,9 +17,12 @@ export function weekStart(at: number): number {
   return d.getTime();
 }
 
+const own = (e: LogEntry) => e.origin !== "assisted";
+
 export function weekly(log: readonly LogEntry[]): WeekStat[] {
   const weeks = new Map<number, LogEntry[]>();
-  for (const e of log) weeks.set(weekStart(e.at), [...(weeks.get(weekStart(e.at)) ?? []), e]);
+  // Decisions the trainer helped with say little about your own play, so progress leaves them out.
+  for (const e of log.filter(own)) weeks.set(weekStart(e.at), [...(weeks.get(weekStart(e.at)) ?? []), e]);
   return [...weeks.entries()].sort(([a], [b]) => a - b).map(([ws, es]) => {
     const ev = es.filter((e) => e.evLossBB !== null);
     const chart = es.filter((e) => e.evLossBB === null);
@@ -45,7 +48,7 @@ export interface Leak {
 /** Each skill's record, worst first: by how often it is missed, then by EV lost. */
 export function leaks(log: readonly LogEntry[]): Leak[] {
   const by = new Map<string, LogEntry[]>();
-  for (const e of log) for (const id of e.conceptIds) by.set(id, [...(by.get(id) ?? []), e]);
+  for (const e of log.filter(own)) for (const id of e.conceptIds) by.set(id, [...(by.get(id) ?? []), e]);
   const out = [...by.entries()].map(([conceptId, es]) => {
     const ev = es.filter((e) => e.evLossBB !== null);
     return {

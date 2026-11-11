@@ -6,6 +6,7 @@ import type { HandEvent, HandState, PlayerAction, SeatIndex } from "../engine/ty
 import { grade } from "../grading/grade";
 import type { Grade } from "../grading/types";
 import { applies, type Concept } from "../learn/concepts";
+import { recordHand, type Seen } from "../learn/seen";
 import { spotView } from "../learn/spot";
 
 export const HERO: SeatIndex = 0;
@@ -58,10 +59,12 @@ export interface Table {
   readonly left: readonly string[];
   /** How the previous game ended, shown on the first hand of a new one. */
   readonly ended: "won" | "lost" | null;
+  /** What each player has done this game, as anyone at the table could count it. */
+  readonly seen: Seen;
 }
 
 export const freshGame = (seed: number, ended: Table["ended"] = null): Table =>
-  ({ handNo: 0, opponents: newTable(seed), stacks: freshStacks(), net: 0, left: [], ended });
+  ({ handNo: 0, opponents: newTable(seed), stacks: freshStacks(), net: 0, left: [], ended, seen: {} });
 
 /**
  * The table for the next hand. A finished hand pays out; an unfinished one (you left for practice)
@@ -76,7 +79,8 @@ export function nextTable(t: Table, hand: Hand, seed: number): Table {
   const opponents: Opponents = Object.fromEntries(staying.slice(1).map((seat, i) => [i + 1, t.opponents[seat]!]));
   const left = chips.flatMap((c, seat) => (c > 0 ? [] : [t.opponents[seat]!.name]));
   const net = t.net + chips[HERO]! - t.stacks[HERO]!;
-  return { handNo: t.handNo + 1, opponents, stacks: staying.map((seat) => chips[seat]!), net, left, ended: null };
+  const seen = state(hand).phase === "complete" ? recordHand(t.seen, hand.events) : t.seen;
+  return { handNo: t.handNo + 1, opponents, stacks: staying.map((seat) => chips[seat]!), net, left, ended: null, seen };
 }
 
 /** Plays bot seats until the hero must act or the hand ends. Bot randomness derives from the seed. */

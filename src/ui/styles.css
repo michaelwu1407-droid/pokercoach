@@ -274,3 +274,18 @@ kbd { font: inherit; font-size: 11px; opacity: 0.6; border: 1px solid currentCol
 .odds-history ol { margin: 6px 0; padding-left: 20px; display: grid; gap: 4px; }
 .odds-history p { margin: 4px 0 0; font-size: 12px; }
 .odds-basis { font-size: 11.5px; margin-left: 6px; }
+.coach-col { display: grid; gap: 12px; align-content: start; min-width: 0; min-height: 0; overflow-y: auto; }
+.coach-col > .coach { max-height: none; }
+.toggle-on { border-color: var(--accent); background: var(--soft); color: var(--accent); font-weight: 700; }
+.trainer { border-color: var(--accent); }
+.checklist { list-style: none; margin: 0; padding: 0; display: grid; gap: 8px; }
+.checklist li { display: grid; gap: 2px; padding: 8px 10px; background: var(--bg); border-radius: 10px; }
+.checklist b { font-size: 12px; text-transform: uppercase; letter-spacing: 0.05em; color: var(--accent); }
+.checklist span { font-size: 13.5px; line-height: 1.45; }
+.trainer button { justify-self: start; }
+.trainer-why { font-size: 13px; }
+.trainer-why > summary { cursor: pointer; color: var(--muted); }
+.trainer-why ul { margin: 6px 0 0; padding-left: 18px; display: grid; gap: 4px; color: var(--muted); }
+.trainer-warning { background: var(--card); border: 2px solid var(--bad); border-radius: 14px; padding: 12px 14px; display: grid; gap: 6px; box-shadow: var(--shadow); }
+.trainer-warning p { margin: 0; font-size: 14px; }
+.trainer-warning-actions { display: flex; gap: 8px; flex-wrap: wrap; }

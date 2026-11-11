@@ -1,7 +1,8 @@
 import type { Hand } from "../session/session";
 import { type Grade, isMiss, type Verdict } from "../grading/types";
 
-export type Origin = "play" | "drill";
+/** Where a decision came from. "assisted" means the trainer showed the answer or warned you first. */
+export type Origin = "play" | "drill" | "assisted";
 
 export interface LogEntry {
   readonly at: number;

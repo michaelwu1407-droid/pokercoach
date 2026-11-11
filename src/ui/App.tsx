@@ -14,6 +14,17 @@ import { Progress } from "./Progress";
 import { Table } from "./Table";
 import { gameOutcome, tableNews } from "./tableNews";
 import { useGame } from "./useGame";
+import { TrainerPanel, TrainerWarning } from "./TrainerPanel";
+import { useTrainer } from "./useTrainer";
+import { trainerBrief } from "../coach/trainer";
+
+const TRAINER_KEY = "pokercoach.trainer";
+function readTrainer(): boolean {
+  try { return localStorage.getItem(TRAINER_KEY) === "1"; } catch { return false; }
+}
+function saveTrainer(on: boolean) {
+  try { localStorage.setItem(TRAINER_KEY, on ? "1" : "0"); } catch { /* Blocked storage: the choice lasts for this page only. */ }
+}
 import { useKeys } from "./useKeys";
 
 export function App() {
@@ -21,6 +32,7 @@ export function App() {
   const [page, setPage] = useState<"table" | "progress">("table");
   // First visit opens the guide, so someone new to poker knows the hands and the words.
   const [help, setHelp] = useState(() => game.learner.log.length === 0);
+  const [trainerOn, setTrainerOn] = useState(readTrainer);
   // Everything on the table follows the hand as played out so far, so opponents act one at a time.
   const st = state(game.shown);
   const bb = st.config.bigBlind;
@@ -32,6 +44,10 @@ export function App() {
   const decisionKey = `${game.hand.seed}:${game.shown.events.length}:${game.mode.kind === "drill" ? game.mode.index : "play"}`;
   const me = st.seats[HERO]!;
 
+  // The trainer is for play only: in practice it would hand you the answer to the spot you missed.
+  const trainerSpot = heroTurn && !drilling ? game.hand : null;
+  const trainer = useTrainer(game, trainerOn && !drilling, trainerSpot);
+  const brief = useMemo(() => (trainerSpot ? trainerBrief(st, HERO, game.hand.opponents, game.table.seen) : null), [trainerSpot, st, game.hand.opponents, game.table.seen]);
   const misses = game.decisions.filter((d) => d.grade?.graded && isMiss(d.grade.verdict)).length;
   const odds = useMemo(() => oddsTimeline(game.shown.events, HERO), [game.shown.events]);
   const outcome = st.phase === "complete" ? gameOutcome(game.hand) : "playing";
@@ -51,6 +67,8 @@ export function App() {
         <button data-testid="tab-progress" onClick={() => setPage(page === "table" ? "progress" : "table")}>
           {page === "table" ? "Progress" : "Back to the table"}
         </button>
+        <button data-testid="trainer-toggle" aria-pressed={trainerOn} className={trainerOn ? "toggle-on" : ""}
+          onClick={() => { setTrainerOn(!trainerOn); saveTrainer(!trainerOn); }}>Trainer: {trainerOn ? "On" : "Off"}</button>
         <button data-testid="help-button" aria-label="How to play" onClick={() => setHelp(true)}>?</button>
       </header>
       {page === "table" ? (
@@ -63,7 +81,9 @@ export function App() {
             <div className="controls">
               <OddsPanel hand={describeHand(me.hole, st.board)} folded={me.folded} over={st.phase === "complete"} steps={odds} />
               <div className="next-row">
-                {heroTurn && <ActionBar key={decisionKey} st={st} onAct={game.act} />}
+                {heroTurn && trainer.warn && <TrainerWarning trainer={trainer} opponents={game.hand.opponents} bigBlind={bb} />}
+                {heroTurn && !trainer.warn && trainer.checking && <p className="muted small waiting">Checking your move…</p>}
+                {heroTurn && !trainer.warn && !trainer.checking && <ActionBar key={decisionKey} st={st} onAct={trainer.act} />}
                 {answered && <button className="primary wide" data-testid="next-drill" onClick={game.nextDrill}>Next</button>}
                 {handOver && (
                   <div className="hand-over" data-testid="review">
@@ -80,9 +100,12 @@ export function App() {
               </div>
             </div>
           </div>
-          <CoachPanel key={game.hand.seed} decisions={game.decisions} opponents={game.hand.opponents} bigBlind={bb}
+          <div className="coach-col">
+          {trainer.on && trainerSpot && brief && <TrainerPanel trainer={trainer} brief={brief} opponents={game.hand.opponents} bigBlind={bb} />}
+          {!(trainer.on && trainerSpot && game.decisions.length === 0) && <CoachPanel key={game.hand.seed} decisions={game.decisions} opponents={game.hand.opponents} bigBlind={bb}
             moment={heroTurn ? "turn" : handOver ? "review" : "watching"} newTable={game.newTableHand}
-            news={drilling ? null : tableNews(game.table)} />
+            news={drilling ? null : tableNews(game.table)} />}
+          </div>
         </main>
       ) : (
         <Progress learner={game.learner} concepts={CORE_CONCEPTS} />

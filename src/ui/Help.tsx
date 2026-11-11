@@ -88,6 +88,8 @@ export function Help({ onClose }: { onClose: () => void }) {
         <h3>Odds worth memorising</h3>
         <dl className="terms">{SHEET.map(([t, d]) => <div key={t}><dt>{t}</dt><dd>{d}</dd></div>)}</dl>
         <p className="muted">Quick rule for draws: count your outs, multiply by 4 on the flop or by 2 on the turn. That is roughly your chance to hit.</p>
+        <h3>The live trainer</h3>
+        <p className="muted">Switch it on from the top bar. On your turn it gives you three checks (your seat, the price of calling, and how that player has played), then a hint and the best move if you ask. It warns you before a costly mistake. Moves it helped with stay out of your progress numbers.</p>
         <h3>Keys</h3>
         <ul className="plain-list">{KEYS.map(([k, d]) => <li key={k}><kbd>{k}</kbd> {d}</li>)}</ul>
         <button className="primary wide sheet-start" data-testid="help-start" onClick={onClose}>Start playing</button>

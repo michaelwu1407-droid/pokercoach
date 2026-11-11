@@ -181,6 +181,42 @@ try {
   assert.equal(progressText.split("\n").find((line) => JARGON.test(line)), undefined, "no jargon on the progress page");
   await page.screenshot({ path: `${OUT}/progress.png` });
 
+  // The live trainer: three checks on your turn, a hint and the answer on request, and a warning before a mistake.
+  if (await page.getByTestId("stop-drills").isVisible()) await page.getByTestId("stop-drills").click();
+  if (await page.getByTestId("progress").isVisible()) await page.getByTestId("tab-progress").click();
+  await page.getByTestId("trainer-toggle").click();
+  const trained = { turns: 0, warnings: 0 };
+  for (let step = 0; step < 300 && trained.turns < 3; step++) {
+    if (await page.getByTestId("trainer-warning").isVisible()) {
+      trained.warnings++;
+      await page.getByTestId("trainer-play-anyway").click();
+      continue;
+    }
+    if (await page.getByTestId("action-bar").isVisible()) {
+      const text = await page.getByTestId("trainer").innerText();
+      assert.match(text, /Position[\s\S]*Price/i, "the trainer shows its checks on your turn");
+      assert.equal(text.split("\n").find((line) => JARGON.test(line)), undefined, "no jargon in the trainer");
+      if (trained.turns === 0) {
+        await page.getByTestId("trainer-hint-button").click({ timeout: 15000 });
+        await page.getByTestId("trainer-hint").waitFor();
+        await page.getByTestId("trainer-answer-button").click({ timeout: 15000 });
+        await page.getByTestId("trainer-answer").waitFor();
+        await page.screenshot({ path: `${OUT}/trainer.png` });
+      }
+      trained.turns++;
+      const move = (await page.getByTestId("act-call").isVisible()) ? "act-call" : (await page.getByTestId("act-check").isVisible()) ? "act-check" : "act-fold";
+      await page.getByTestId(move).click();
+      await page.getByTestId("action-bar").waitFor({ state: "hidden", timeout: 15000 });
+      continue;
+    }
+    if (await page.getByTestId("next-hand").isVisible()) { await page.getByTestId("next-hand").click(); continue; }
+    await page.keyboard.press("Space");
+    await page.waitForTimeout(50);
+  }
+  console.log("trainer", trained);
+  assert.ok(trained.turns >= 3, "played three decisions with the trainer on");
+  await page.getByTestId("trainer-toggle").click();
+
   await page.setViewportSize({ width: 390, height: 844 });
   await page.getByTestId("tab-progress").click();
   const scrollW = await page.evaluate(() => document.documentElement.scrollWidth);

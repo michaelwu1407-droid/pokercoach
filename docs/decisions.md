@@ -102,3 +102,14 @@ Each number on a card sits beside one plain line saying what it means ("13%: of 
 ## 24. Live odds beside your cards
 
 The owner asked to see their chance to win as the hand unfolds, with a plain reason for each change, from the deal on. `src/coach/liveOdds.ts` recomputes it at the deal, at each fold and at each new card, against the players still in holding random cards (`src/evaluator/randomEquity.ts`, sampled with a fixed seed). It never uses the opponent read, so it does not reveal the graded answer (invariant 4, amended). The coach's own chance after a decision reads their bets too, and its detail line says so, because the two numbers can differ a lot.
+
+## 25. A live trainer, built for poker rather than copied from chess
+
+The owner asked for a switchable trainer like the coaches in chess apps. Chess coaches can name the best move as you play because the whole board is visible and one move is usually best. Poker differs in ways that change what a trainer should do:
+
+- **Hidden cards.** The trainer never uses opponents' cards. Its checklist uses only what anyone at the table sees.
+- **Several close options.** Instead of leading with a move, it gives the three checks a good player runs every time: position, price (the share of the pot a call needs), and the player (how often they have played and raised this game, counted by `src/learn/seen.ts`).
+- **Opponent-dependent answers.** The player check reads each opponent from this game's counts, because the same hand can be a call against one player and a fold against another.
+- **Results mislead.** It reminds you to judge the decision, not the result.
+
+The hint (the spot's rule of thumb) and the best move stay hidden until asked. A move that would be a mistake pauses with "Think again", like a chess coach's warning, and can be taken back or played anyway. Any decision where the trainer showed the answer or warned you is logged as "assisted" and left out of progress. The trainer is off during practice, which tests spots you got wrong. Invariant 4 still holds with the trainer off; switching it on is the learner asking for help.

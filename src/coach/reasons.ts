@@ -68,7 +68,7 @@ function reason(g: Graded, kind: Kind, bet: ActionValue | null, name: string | u
     const needs = `${capital(describe(bet.action))} needs ${them} to fold ${pct(bet.foldNeeded)} of the time (${money(bet.risk)} ÷ ${money(bet.potWithBet)}, your bet plus the pot).`;
     if (fold <= bet.foldNeeded) return `${needs} ${capital(them)} folds only ${pct(fold)}, and when called you win just ${pct(called)}: check.`;
     // Enough folds on paper, yet checking is worth more: their raises and calls cost more than the folds win.
-    return `${needs} ${capital(them)} folds ${pct(fold)}, but when ${them} does not fold they often raise or have you beaten, so over all their answers a bet earns less than checking (each option's value is under "How this was worked out"): check.`;
+    return `${needs} ${capital(them)} folds ${pct(fold)}, enough on paper, but when ${them} stays in they often raise or beat you: check.`;
   }
   return `A bet ${fold < 0.005 ? `never makes ${them} fold` : `makes ${them} fold ${fold < 0.4 ? "only " : ""}${pct(fold)} of the time`}, and when called you win just ${pct(called)}${called < equity - 0.03 ? ", because mostly better hands call" : ""}: check.`;
 }

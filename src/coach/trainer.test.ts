@@ -1,0 +1,38 @@
+import { describe, expect, it } from "vitest";
+import { FULL_DECK } from "../cards/card";
+import { newTable } from "../session/session";
+import { reduce } from "../engine/reduce";
+import type { HandEvent, Start } from "../engine/types";
+import { recordHand } from "../learn/seen";
+import { trainerBrief } from "./trainer";
+
+const opponents = newTable(4);
+const ids = ["You", ...[1, 2, 3, 4, 5].map((i) => opponents[i]!.name)];
+const start: Start = { type: "start", config: { seats: ids.map((id) => ({ id, stack: 10000 })), smallBlind: 50, bigBlind: 100, button: 0 }, deck: [...FULL_DECK] };
+// Seat 3 raises, seat 4 calls, seat 5 folds, the blinds fold, so seat 0 (you, the Dealer) is next.
+const raiseThenCall: HandEvent[] = [start, { type: "raise", seat: 3, to: 250 }, { type: "call", seat: 4 }, { type: "fold", seat: 5 }];
+
+describe("what anyone at the table could count", () => {
+  it("counts hands played and raised before the flop, never blinds", () => {
+    const seen = recordHand(recordHand({}, raiseThenCall), raiseThenCall);
+    expect(seen[ids[3]!]).toEqual({ hands: 2, played: 2, raised: 2 });
+    expect(seen[ids[4]!]).toEqual({ hands: 2, played: 2, raised: 0 });
+    expect(seen[ids[1]!]).toEqual({ hands: 2, played: 0, raised: 0 });
+    expect(seen.You).toBeUndefined();
+  });
+});
+
+describe("the trainer's three checks", () => {
+  const st = reduce(raiseThenCall);
+  it("names your seat, the price of calling, and who raised", () => {
+    const b = trainerBrief(st, 0, opponents, {});
+    expect(b.position).toBe("You are in the Dealer seat (last to act after the flop). Few players act after you and you act late after the flop, so you can play more hands.");
+    expect(b.price).toBe("Calling costs $2.50 and the pot would be $9: you need to win 28% of the time, so you need a hand that is often ahead of theirs.");
+    expect(b.player).toBe(`${ids[3]} raised. Too few hands to judge ${ids[3]} yet: watch which hands they play.`);
+  });
+
+  it("reads a player from counts once there are enough hands", () => {
+    const b = trainerBrief(st, 0, opponents, { [ids[3]!]: { hands: 10, played: 6, raised: 4 } });
+    expect(b.player).toBe(`${ids[3]} raised. ${ids[3]} plays about 1 hand in 2 and raises most of them, so their raise is often not that strong.`);
+  });
+});
