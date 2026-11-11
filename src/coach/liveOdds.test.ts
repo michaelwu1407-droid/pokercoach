@@ -20,12 +20,12 @@ describe("live odds", () => {
     const [first] = oddsTimeline(hand(deck, []), 0);
     expect(first!.delta).toBeNull();
     expect(first!.chance).toBeGreaterThan(0.4);
-    expect(first!.reason).toMatch(/^A fair share against 5 other players is 17%, so your hand is much better/);
+    expect(first!.reason).toMatch(/^An average hand wins 17% against 5 players\. Yours is much better/);
   });
 
   it("goes up with each fold and says who folded", () => {
     const steps = oddsTimeline(hand(deck, folds), 0);
-    expect(steps.map((s) => s.reason.split(":")[0])).toEqual([expect.any(String), "Cleo folded", "Dev folded", "Eli folded"]);
+    expect(steps.map((s) => s.reason.split(".")[0])).toEqual([expect.any(String), "Cleo folded", "Dev folded", "Eli folded"]);
     for (const s of steps.slice(1)) expect(s.delta!).toBeGreaterThan(0);
   });
 

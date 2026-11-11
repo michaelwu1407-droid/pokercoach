@@ -128,6 +128,6 @@ describe("one-round lookahead", () => {
     const check = g.basis.values.find((v) => v.action.type === "check")!;
     // Checked down, a check is worth exactly the 2bb pot. Looking one round ahead, the river bet adds to it.
     expect(check.evBB).toBeGreaterThan(2.2);
-    expect(g.basis.approximations.join(" ")).toMatch(/next betting round is played out/);
+    expect(g.basis.approximations.join(" ")).toMatch(/plays out the next round for every possible next card/);
   }, 60_000);
 });

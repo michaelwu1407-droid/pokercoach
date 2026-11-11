@@ -20,16 +20,16 @@ function playPhrase(g: HandGroup): string {
     case "aceBig": return g.lowRank <= 8 ? `Aces with a Ten or higher${suited}` : g.lowRank === 11 ? `Ace-King${suited}` : `Ace-${NAMES[g.lowRank]}${suited} or better`;
     case "bothBig": return `two cards Ten or higher${g.allSuited ? " of the same suit" : ""}`;
     case "aceSmall": return g.allSuited ? "suited Aces" : "any Ace";
-    case "suited": return "suited hands with close cards or a high card (like Nine-Eight)";
+    case "suited": return "suited hands like Nine-Eight";
     case "other": return "most other hands";
   }
 }
 /** "Any Ace" already covers Aces with a big card, so that type is not named twice. */
 const typesToPlay = (main: readonly HandGroup[]) => {
   const anyAce = main.some((g) => g.kind === "aceSmall" && !g.allSuited);
-  return and(main.filter((g) => !(anyAce && g.kind === "aceBig")).map(playPhrase));
+  return main.filter((g) => !(anyAce && g.kind === "aceBig")).map((g) => capital(playPhrase(g)));
 };
-const noneOf = (main: readonly HandGroup[]) => (main.length === 1 ? "not one" : main.length === 2 ? "neither" : "none of these");
+const noneOf = (main: readonly HandGroup[]) => (main.length === 1 ? "not one of these" : main.length === 2 ? "neither of these" : "none of these");
 
 const RAISE = { "rfi": "raise", "vs-limp": "raise", "vs-open": "re-raise", "vs-3bet": "raise again", "vs-4bet": "raise again" } as const;
 
@@ -51,46 +51,47 @@ const SEAT_HINT = {
 
 const nameOf = (o: Opponents, seat: number | null | undefined) => (seat === null || seat === undefined ? undefined : o[seat]?.name);
 
-/** What happened and the rule for it, in one line: "Against Jun's raise, play any pair and Ace-Jack or better." */
-function lead(b: Chart, g: Graded, o: Opponents): string {
+/** What happened, then the hands to play as a list: "Against Jun's raise, play:" + ["Any pair", "Ace-Jack or better"]. */
+function lead(b: Chart, g: Graded, o: Opponents): { intro: string; list: string[] } {
   const raiser = nameOf(o, g.facing?.by) ?? "the raiser";
-  const types = typesToPlay(b.groups);
+  const list = typesToPlay(b.groups);
   switch (b.spot) {
-    case "rfi": return `Nobody has raised. From the ${seatName(b.position)} seat, raise ${types}.`;
+    case "rfi": return { intro: `Nobody has raised. From the ${seatName(b.position)} seat, raise:`, list };
     case "vs-limp": {
       const callers = g.win.against.map((seat) => nameOf(o, seat) ?? "a player");
-      return `${callers.length ? and(callers) : "Players"} only called. From the ${seatName(b.position)} seat, raise ${types}.`;
+      return { intro: `${callers.length ? and(callers) : "Players"} only called. From the ${seatName(b.position)} seat, raise:`, list };
     }
-    case "vs-open": return `Against ${raiser}'s raise, play ${types}.`;
-    case "vs-3bet": return `After ${raiser}'s re-raise, keep playing only ${types}.`;
-    case "vs-4bet": return `After ${raiser} raised again, keep playing only ${types}.`;
+    case "vs-open": return { intro: `Against ${raiser}'s raise, play:`, list };
+    case "vs-3bet": return { intro: `After ${raiser}'s re-raise, keep playing:`, list };
+    case "vs-4bet": return { intro: `After ${raiser} raised again, keep playing:`, list };
   }
 }
 
 /** Your hand against the rule, ending in the move. */
 function handLine(b: Chart, g: Graded, describe: (a: PlayerAction) => string): string {
   const hand = handWords(b.handClass);
-  if (b.oversized) return `Right idea, wrong size: ${describe(g.best)}, not ${describe(g.action)}. A raise that big only gets called by hands that beat you.`;
-  if (b.borderline) return `${hand} is just outside the list here, so this is close. It becomes a raise from a later seat.`;
-  const fold = b.position === "BB" && b.spot === "vs-limp" ? "check" : "fold";
+  if (b.oversized) return `Right idea, wrong size. ${capital(describe(g.best))}, not ${describe(g.action)}. Only better hands call a raise that big.`;
+  if (b.borderline) return `${hand} is just outside the list. Close call. From a later seat it is a raise.`;
+  const fold = b.position === "BB" && b.spot === "vs-limp" ? "Check" : "Fold";
   const play = b.bestMove === "raise" ? RAISE[b.spot] : "call";
   const main = inMainGroup(b.handClass, b.groups);
   if (b.bestMove === "fold") {
-    if (!main) return `${hand} is ${noneOf(b.groups)}: ${fold}.`;
+    if (!main) return `${hand} is ${noneOf(b.groups)}. ${fold}.`;
     const c = cut(b.row);
-    return `${hand} is below the cut here${c ? ` (${c})` : ""}: ${fold}.`;
+    return c ? `${hand} is too weak. Here you need ${c}. ${fold}.` : `${hand} is too weak here. ${fold}.`;
   }
   const chose = aggressive(g.action) ? "raise" : g.action.type === "call" ? "call" : "fold";
   if (chose !== "fold" && chose !== b.bestMove) {
-    return b.bestMove === "raise" ? `${hand} is strong enough to ${play}, not just call.` : `${hand} is worth a call here, but not a ${RAISE[b.spot]}.`;
+    return b.bestMove === "raise" ? `${hand} is strong enough to ${play}, not just call.` : `${hand} is worth a call here, not a ${RAISE[b.spot]}.`;
   }
-  return main ? `${hand} is ${typeOf(b.handClass)}: ${play}.` : `${hand} is one of the few extra hands that make the list here: ${play}.`;
+  return main ? `${hand} is ${typeOf(b.handClass)}. ${capital(play)}.` : `${hand} is one of the few extras on the list. ${capital(play)}.`;
 }
 
 /** The rule for this spot (lead) and your hand against it (summary). */
-export function preflopText(g: Graded, o: Opponents, describe: (a: PlayerAction) => string): { lead: string; summary: string } {
-  if (g.basis.kind !== "chart") return { lead: "", summary: "" };
-  return { lead: lead(g.basis, g, o), summary: handLine(g.basis, g, describe) };
+export function preflopText(g: Graded, o: Opponents, describe: (a: PlayerAction) => string): { lead: string; leadList: string[]; summary: string } {
+  if (g.basis.kind !== "chart") return { lead: "", leadList: [], summary: "" };
+  const l = lead(g.basis, g, o);
+  return { lead: l.intro, leadList: l.list, summary: handLine(g.basis, g, describe) };
 }
 
 /** Why the list is that size, in one or two sentences, with its tag. */
@@ -101,20 +102,16 @@ export function preflopWhy(g: Graded, o: Opponents): { label: string; text: stri
   switch (b.spot) {
     case "rfi": {
       const early = b.ladder[0]!, dealer = b.ladder.find((l) => l.position === "BTN")!;
-      const behind = `${b.behind} player${b.behind === 1 ? "" : "s"}`;
-      const text = b.behind <= 2 ? `Only ${behind} still act after you, so a better hand behind you is less likely.` : `${capital(behind)} still act after you, and any of them may hold a better hand.`;
-      return { label: b.behind <= 2 ? "Why so many" : "Why so few", text: `${text} The later your seat, the more you play: about ${early.roughPct}% of hands from the Early seat, ${dealer.roughPct}% from the Dealer.` };
+      const many = b.behind <= 2;
+      const text = many ? `Only ${b.behind} act after you. A better hand is less likely.` : `${b.behind} players act after you. Any of them may have a better hand.`;
+      return { label: many ? "Why so many" : "Why so few", text: `${text} Rule: play about ${early.roughPct}% of hands from the Early seat, up to ${dealer.roughPct}% from the Dealer.` };
     }
-    case "vs-limp": return { label: "Why", text: "Players who only call usually have medium hands. Raise the hands that beat those and take the pot." };
-    case "vs-open": return looseRaiser(g) ? {
-      label: "Why so few",
-      text: `Most players raise from the ${b.opener ? `${seatName(b.opener)} seat` : "seat"} with only their best ${b.openerShare !== null ? `${pct(b.openerShare)} of hands` : "hands"}. ${raiser} raises more than that, but your hand still trails the hands ${raiser} raises with.`,
-    } : {
-      label: "Why so few",
-      text: `A raise from the ${b.opener ? `${seatName(b.opener)} seat (${SEAT_HINT[b.opener]})` : "seat they sit in"} usually means one of the best ${b.openerShare !== null ? `${pct(b.openerShare)} of hands` : "hands"}, so you need hands often ahead of ${raiser}'s.`,
-    };
+    case "vs-limp": return { label: "Why", text: "Players who just call usually have medium hands. Raise the hands that beat them." };
+    case "vs-open": return looseRaiser(g)
+      ? { label: "Why so few", text: `Most players raise here with their best ${b.openerShare !== null ? pct(b.openerShare) : "few"} hands. ${capital(raiser)} raises more. Your hand still trails.` }
+      : { label: "Why so few", text: `A raise from the ${b.opener ? seatName(b.opener) : ""} seat usually means a top ${b.openerShare !== null ? pct(b.openerShare) : ""} hand. You need a hand that beats most of those.` };
     case "vs-3bet": return { label: "Why so few", text: "A re-raise usually means a very strong hand." };
-    case "vs-4bet": return { label: "Why so few", text: "By the third raise the pot is huge, so only hands well ahead of what they raise with are worth it." };
+    case "vs-4bet": return { label: "Why so few", text: "A third raise means a huge pot. Only the very best hands are worth it." };
   }
 }
 
@@ -130,8 +127,8 @@ export function preflopStats(g: Graded, o: Opponents): { value: string; label: s
   const list = { value: pct(b.continueShare), label: "Hands worth playing here", detail: `${b.listSize} of the ${b.allHands.toLocaleString("en-US")} possible starting hands.` };
   const names = g.win.against.map((s) => nameOf(o, s) ?? "a player");
   const label = names.length === 0 ? "Your chance vs one random hand" : `Your chance vs ${and(names)}`;
-  const mostly = names.length === 1 && g.win.theirs
-    ? ` ${names[0]}'s ${b.spot === "vs-limp" ? "calls" : "raises"} here are mostly ${kindsText(g.win.theirs.mostly)}.` : "";
-  const detail = names.length === 0 ? "If all five cards are dealt. Nobody else has put chips in yet." : `If all five cards are dealt.${mostly}`;
+  const detail = names.length === 0 ? "Against one random hand. Nobody else is in yet."
+    : names.length === 1 && g.win.theirs ? `${names[0]} ${b.spot === "vs-limp" ? "calls" : "raises"} here with mostly ${kindsText(g.win.theirs.mostly)}.`
+    : "Against the hands each of them usually plays here.";
   return [list, { value: pct(g.win.chance), label, detail }];
 }

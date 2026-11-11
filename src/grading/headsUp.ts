@@ -111,8 +111,8 @@ export function gradeHeadsUp(events: readonly HandEvent[], st: HandState, action
       equity: m.range.reduce((s, w, i) => s + w.weight * m.eq[i]!, 0),
       potOddsNeeded: potOddsNeeded(st), rangeSize: effectiveSize(m.range),
       approximations: [
-        ...(st.street !== "river" ? ["The next betting round is played out over every possible next card, with you choosing your best option and them following their strategy. After that round, the rest of the hand is assumed to be checked through."] : []),
-        ...(raiseLegal ? ["If you bet and get raised, you either fold or call. Re-raising is not considered.", "An all-in for more than twice the pot is priced but never recommended, because this method looks only one betting round ahead."] : []),
+        ...(st.street !== "river" ? ["It plays out the next round for every possible next card.", "After that, it assumes everyone checks to the end."] : []),
+        ...(raiseLegal ? ["If you bet and get raised, you fold or call. Re-raising is left out.", "A huge all-in is never suggested, since it only looks one round ahead."] : []),
       ],
     },
   };

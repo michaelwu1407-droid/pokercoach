@@ -37,15 +37,15 @@ function position(st: HandState, hero: SeatIndex): string {
   const order = afterFlopOrder(st, hero);
   if (st.street === "preflop") {
     const pos = positionOf(st.config, hero);
-    const where = `You are in the ${seatName(pos)} seat (${SEAT_HINT[pos]}).`;
-    if (pos === "UTG" || pos === "HJ") return `${where} Most players act after you, so play only strong hands.`;
-    if (pos === "BTN") return "You are in the Dealer seat: only the blinds act after you now, and you act last after the flop, so play more hands.";
-    if (pos === "CO") return `${where} Only a few players act after you, so you can play more hands.`;
-    return `${where} You will act first after the flop, so play fewer hands than the Dealer.`;
+    const where = `${seatName(pos)} seat, ${SEAT_HINT[pos]}.`;
+    if (pos === "UTG" || pos === "HJ") return `${where} Most players act after you. Play only strong hands.`;
+    if (pos === "BTN") return "Dealer seat. Only the blinds act after you. Play more hands.";
+    if (pos === "CO") return `${where} Few players act after you. Play more hands.`;
+    return `${seatName(pos)} seat. You act first after the flop. Play fewer hands.`;
   }
-  if (order === "last") return "You act last this round, so you see their moves before you choose: an edge.";
-  if (order === "first") return "You act first this round, so you know the least: be careful with medium hands.";
-  return `You act ${order} this round, so others still act after you: be careful with medium hands.`;
+  if (order === "last") return "You act last. You see their moves before you choose.";
+  if (order === "first") return "You act first. You know the least, so be careful.";
+  return "Others act after you. Be careful with medium hands.";
 }
 
 function price(st: HandState): string {
@@ -55,15 +55,14 @@ function price(st: HandState): string {
   const bb = st.config.bigBlind;
   const raised = st.street === "preflop" && st.currentBet > bb;
   if (st.street === "preflop" && !raised && legal && legal.callAmount > 0)
-    return `Nobody has raised yet. Just calling the ${money(bb, bb)} big blind lets everyone after you in cheaply, so the usual choice is raise or fold.`;
+    return "Nobody has raised. Don't just call. Raise or fold.";
   if (legal && legal.callAmount > 0) {
     const after = pot + legal.callAmount;
     const need = legal.callAmount / after;
-    const so = need < 0.2 ? "so even a fair hand or a good draw can call" : "so you need a hand that is often ahead of theirs";
-    return `Calling costs ${money(legal.callAmount, bb)} and the pot would be ${money(after, bb)}: you need to win ${pct(need)} of the time, ${so}.`;
+    return `A call costs ${money(legal.callAmount, bb)} to win ${money(after, bb)}. You need to win ${pct(need)} of the time.`;
   }
-  if (st.street === "preflop") return "Nobody raised, so you can check for free in the big blind, or raise your better hands to take the pot.";
-  return `Nobody has bet, so checking is free. Bet when worse hands will call or better ones will fold (a half-pot bluff needs ${pct(BLUFF_GUIDE.halfPot)} folds).`;
+  if (st.street === "preflop") return "Nobody raised. Check for free, or raise good hands.";
+  return `Nobody has bet. Checking is free. A half-pot bluff needs ${pct(BLUFF_GUIDE.halfPot)} folds.`;
 }
 
 /** Enough hands to say anything about a player. */
@@ -72,13 +71,13 @@ const MIN_HANDS = 8;
 /** A read from counts, with what it means for you: how often they play, and whether they raise or call. */
 function read(name: string, seen: Seen, facing: "bet" | "raise" | "re-raise" | null): string {
   const p = seen[name];
-  if (!p || p.hands < MIN_HANDS || p.played === 0) return `Too few hands to judge ${name} yet: watch which hands they play.`;
+  if (!p || p.hands < MIN_HANDS || p.played === 0) return `Too few hands to read ${name} yet.`;
   const play = p.played / p.hands, raise = p.raised / p.played;
-  const how = `${name} plays about 1 hand in ${Math.max(1, Math.round(1 / play))} and ${raise > 0.6 ? "raises most of them" : raise < 0.25 ? "mostly just calls" : "raises some of them"}`;
-  if (!facing) return play < 0.2 ? `${how}, so when they stay in, expect a real hand.` : play > 0.4 ? `${how}, so they often play weak hands: bet your good ones.` : `${how}, so expect a fair hand when they play.`;
-  if (play < 0.2) return `${how}, so their ${facing} usually means a strong hand.`;
-  if (play > 0.4) return `${how}, so their ${facing} is often not that strong.`;
-  return `${how}, so their ${facing} is usually a real hand, though not always a strong one.`;
+  const how = `${name} plays 1 hand in ${Math.max(1, Math.round(1 / play))}${raise > 0.6 ? " and raises most" : raise < 0.25 ? " and mostly calls" : ""}.`;
+  if (!facing) return play < 0.2 ? `${how} When ${name} stays in, expect a real hand.` : play > 0.4 ? `${how} Bet your good hands.` : how;
+  if (play < 0.2) return `${how} This ${facing} likely means a strong hand.`;
+  if (play > 0.4) return `${how} This ${facing} is often weak.`;
+  return `${how} This ${facing} is likely a real hand.`;
 }
 
 function player(st: HandState, hero: SeatIndex, opponents: Opponents, seen: Seen): string {
@@ -95,9 +94,9 @@ function player(st: HandState, hero: SeatIndex, opponents: Opponents, seen: Seen
   if (st.street === "preflop") {
     // Before anyone has put chips in by choice there is nobody to read; only who is left to act matters.
     const after = st.pending.filter((p) => p !== hero).length;
-    return after <= 2 ? `Only ${after === 1 ? "1 player is" : `${after} players are`} left to act after you, so more hands are worth a raise.` : "";
+    return after <= 2 ? `Only ${after} left to act after you. Raise more hands.` : "";
   }
-  if (live.length > 1) return `${live.length} players are still in, so you need a stronger hand than against one.`;
+  if (live.length > 1) return `${live.length} players are in. You need a stronger hand.`;
   return live[0] ? read(live[0], seen, null) : "";
 }
 

@@ -28,7 +28,12 @@ export function FeedbackCard({ f, showContext = true }: { f: Feedback; showConte
     <div className={`feedback tone-${f.tone}`} data-testid="feedback">
       {showContext && <div className="context">{f.context}</div>}
       <h3 className="feedback-headline"><span className="verdict-dot" aria-hidden="true" />{f.headline}</h3>
-      {f.lead && <p className="lead" data-testid="lead">{f.lead}</p>}
+      {f.lead && (
+        <div className="lead" data-testid="lead">
+          {f.lead}
+          {f.leadList.length > 0 && <ul className="lead-list">{f.leadList.map((x) => <li key={x}>{x}</li>)}</ul>}
+        </div>
+      )}
       <p className="summary" data-testid="summary">{f.summary}</p>
       <details className="more" data-testid="more" open={open} onToggle={(e) => remember((e.target as HTMLDetailsElement).open)}>
         <summary>More detail</summary>

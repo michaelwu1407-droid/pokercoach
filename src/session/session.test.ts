@@ -9,6 +9,9 @@ import { CORE_CONCEPTS } from "../learn/concepts";
 import { emptyLearner, learnFrom, type Learner } from "../learn/learner";
 import { BIG_BLIND, heroAct, newHand, newTable, state } from "./session";
 
+/** The longest sentence the coach may write. Set by the owner's "simple and clear" feedback. */
+const PLAIN_WORDS = 18;
+
 function playSession(hands: number) {
   const rng = mulberry32(9);
   const results: { grade: Grade; conceptIds: string[]; opponents: ReturnType<typeof newTable> }[] = [];
@@ -61,7 +64,12 @@ describe("session", () => {
       const bad = ungroundedNumbers(feedbackText(f), allowedNumbers(grade, BIG_BLIND));
       expect(bad).toEqual([]);
       if (f.mix) expect(f.mix.reduce((s, m) => s + m.share, 0)).toBeCloseTo(1, 6);
-      if (grade.graded && grade.basis.kind === "ev") expect(f.read).toMatch(/plays like a/);
+      if (grade.graded && grade.basis.kind === "ev") expect(f.read).toMatch(/ is a /);
+      // Plain words: short sentences, one idea each, no semicolons.
+      for (const sentence of feedbackText(f).split(/(?<=[.!?])\s+/)) {
+        expect(sentence.split(/\s+/).length, sentence).toBeLessThanOrEqual(PLAIN_WORDS);
+        expect(sentence, sentence).not.toMatch(/;/);
+      }
     }
   });
 

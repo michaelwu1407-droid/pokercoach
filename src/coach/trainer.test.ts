@@ -26,13 +26,13 @@ describe("the trainer's three checks", () => {
   const st = reduce(raiseThenCall);
   it("names your seat, the price of calling, and who raised", () => {
     const b = trainerBrief(st, 0, opponents, {});
-    expect(b.position).toBe("You are in the Dealer seat: only the blinds act after you now, and you act last after the flop, so play more hands.");
-    expect(b.price).toBe("Calling costs $2.50 and the pot would be $9: you need to win 28% of the time, so you need a hand that is often ahead of theirs.");
-    expect(b.player).toBe(`${ids[3]} raised. Too few hands to judge ${ids[3]} yet: watch which hands they play.`);
+    expect(b.position).toBe("Dealer seat. Only the blinds act after you. Play more hands.");
+    expect(b.price).toBe("A call costs $2.50 to win $9. You need to win 28% of the time.");
+    expect(b.player).toBe(`${ids[3]} raised. Too few hands to read ${ids[3]} yet.`);
   });
 
   it("reads a player from counts once there are enough hands", () => {
     const b = trainerBrief(st, 0, opponents, { [ids[3]!]: { hands: 10, played: 6, raised: 4 } });
-    expect(b.player).toBe(`${ids[3]} raised. ${ids[3]} plays about 1 hand in 2 and raises most of them, so their raise is often not that strong.`);
+    expect(b.player).toBe(`${ids[3]} raised. ${ids[3]} plays 1 hand in 2 and raises most. This raise is often weak.`);
   });
 });

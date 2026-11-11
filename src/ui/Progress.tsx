@@ -29,14 +29,14 @@ export function Progress({ learner, concepts }: { learner: Learner; concepts: re
   return (
     <section className="page" data-testid="progress">
       <h2>Progress</h2>
-      <p className="muted">Judge yourself by your decisions, not by winning or losing hands: one hand's result is mostly luck.</p>
+      <p className="muted">Judge your decisions, not wins and losses. One hand is mostly luck.</p>
       {!now ? <div className="empty">Play some hands to see your numbers.</div> : (
         <>
           <div className="kpis">
             <Kpi value={now.meanEvLossBB === null ? "–" : dollars(now.meanEvLossBB)} label="Lost per decision after the flop"
-              detail={`Average cost compared with the best play, this week. Lower is better. ${trend}`} />
+              detail={`Your average cost this week. Lower is better. ${trend}`} />
             <Kpi value={now.chartAccuracy === null ? "–" : pct(now.chartAccuracy)} label="Before-the-flop decisions right"
-              detail={`Out of ${now.chartDecisions} this week, judged against the hand lists.`} />
+              detail={`Out of ${now.chartDecisions} this week.`} />
             <Kpi value={String(now.evDecisions + now.chartDecisions)} label="Decisions graded this week" detail="More decisions make these numbers more reliable." />
           </div>
           {weeks.length > 1 && (

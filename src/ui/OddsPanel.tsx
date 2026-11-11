@@ -34,7 +34,7 @@ export function OddsPanel({ hand, folded, over, steps }: { hand: string; folded:
               <li key={i}><b>{pct(s.chance)}</b> <Delta d={s.delta} /> <span>{s.reason}</span></li>
             ))}
           </ol>
-          <p className="muted">These odds treat everyone else's cards as random. After your move, the coach also uses what their bets tell you.</p>
+          <p className="muted">These odds ignore what their bets tell you. The coach uses their bets after your move.</p>
         </details>
       )}
     </div>

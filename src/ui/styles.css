@@ -289,3 +289,5 @@ kbd { font: inherit; font-size: 11px; opacity: 0.6; border: 1px solid currentCol
 .trainer-warning { background: var(--card); border: 2px solid var(--bad); border-radius: 14px; padding: 12px 14px; display: grid; gap: 6px; box-shadow: var(--shadow); }
 .trainer-warning p { margin: 0; font-size: 14px; }
 .trainer-warning-actions { display: flex; gap: 8px; flex-wrap: wrap; }
+.lead-list { list-style: none; margin: 6px 0 0; padding: 0; display: flex; flex-wrap: wrap; gap: 6px; }
+.lead-list li { background: var(--soft); color: var(--ink); border-radius: 999px; padding: 3px 10px; font-size: 13px; }

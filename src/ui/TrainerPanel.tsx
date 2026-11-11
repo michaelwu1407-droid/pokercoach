@@ -12,19 +12,19 @@ const capital = (s: string) => s[0]!.toUpperCase() + s.slice(1);
 export function TrainerPanel({ trainer, brief, opponents, bigBlind }: { trainer: Trainer; brief: Brief; opponents: Opponents; bigBlind: number }) {
   const best = trainer.best && trainer.best.graded ? trainer.best : null;
   const f = best ? feedback(best, opponents, bigBlind) : null;
-  // The Position and Price checks already say your seat and that nobody raised, so the hint is just the rule.
-  const hint = f ? (f.lead ?? f.keyPoint).replace(/^Nobody has raised\. From the \w+ seat, raise/, "Raise").replace(/ From the \w+ seat, raise/, " Raise") : null;
+  // The checks already say your seat and what happened, so the hint is just the rule.
+  const hint = f ? (f.lead ? "Play these hands:" : f.keyPoint) : null;
   return (
     <aside className="coach trainer" data-testid="trainer">
       <div className="micro-label">Live trainer · your three checks</div>
-      <p className="muted small trainer-lead">Poker has no single perfect move like chess, and their cards are hidden. These checks use only what you can see at the table.</p>
+      <p className="muted small trainer-lead">Unlike chess, you can't see their cards. So there is no sure move. Run these three checks.</p>
       <ol className="checklist">
         <li><b>Position</b><span>{brief.position}</span></li>
         <li><b>Price</b><span>{brief.price}</span></li>
         {brief.player && <li><b>Player</b><span>{brief.player}</span></li>}
       </ol>
       {trainer.hint && hint
-        ? <div className="key-point" data-testid="trainer-hint"><span className="key-tag">Hint</span><p>{hint}</p></div>
+        ? <div className="key-point" data-testid="trainer-hint"><span className="key-tag">Hint</span><p>{hint}</p>{f && f.leadList.length > 0 && <ul className="lead-list">{f.leadList.map((x) => <li key={x}>{x}</li>)}</ul>}</div>
         : <button data-testid="trainer-hint-button" disabled={!hint} onClick={trainer.showHint}>{hint ? "Hint" : "Thinking…"}</button>}
       {trainer.answer && best && f
         ? (
@@ -34,12 +34,12 @@ export function TrainerPanel({ trainer, brief, opponents, bigBlind }: { trainer:
           </div>
         )
         : <button data-testid="trainer-answer-button" disabled={!best} onClick={trainer.showAnswer}>Show best move</button>}
-      {trainer.answer && <p className="muted small">This decision counts as assisted, so it stays out of your progress numbers.</p>}
+      {trainer.answer && <p className="muted small">This move counts as assisted. It stays out of your progress.</p>}
       <details className="trainer-why">
         <summary>Why a poker trainer works differently from a chess one</summary>
         <ul>
-          <li>The same hand can be a call against a wild player and a fold against a tight one, so the trainer tracks how each player has played this game.</li>
-          <li>A good poker decision can lose and a bad one can win. Judge yourself by the decision, never by the result.</li>
+          <li>A hand can be a call against a wild player and a fold against a tight one. So it tracks how each player plays.</li>
+          <li>Good decisions can lose. Bad ones can win. Judge the decision, not the result.</li>
         </ul>
       </details>
     </aside>

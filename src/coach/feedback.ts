@@ -18,8 +18,9 @@ export interface Feedback {
   /** What you did and what you faced, since play may have moved on. */
   readonly context: string;
   readonly headline: string;
-  /** Before the flop: the rule for this spot, shown above the summary. */
+  /** Before the flop: the rule for this spot, shown above the summary, and the hands it plays. */
   readonly lead: string | null;
+  readonly leadList: readonly string[];
   /** One short line with the reason that decided it. Everything else sits behind "More detail". */
   readonly summary: string;
   /** At most three numbers, the ones the decision turned on. Chance to win comes first. */
@@ -37,7 +38,7 @@ export interface Feedback {
 }
 
 const STREET: Record<Street, string> = {
-  preflop: "Before the flop", flop: "On the flop", turn: "On the turn (the fourth card)", river: "On the river (the last card)",
+  preflop: "Before the flop", flop: "On the flop", turn: "On the turn", river: "On the river",
 };
 
 const capital = (s: string) => s[0]!.toUpperCase() + s.slice(1);
@@ -94,7 +95,7 @@ function dedupe(stats: readonly Stat[], summary: string): Stat[] {
 export function feedback(g: Grade, opponents: Opponents, bb: number): Feedback {
   if (!g.graded) {
     const ctx = `${STREET[g.street]}, you chose ${describeAction(g.action, bb)}.`;
-    return { tone: "ungraded", context: ctx, headline: "Not graded", lead: null, summary: g.reason, stats: [], mix: null, keyLabel: "Why", keyPoint: g.reason, draw: null, read: null, details: [], caveats: [] };
+    return { tone: "ungraded", context: ctx, headline: "Not graded", lead: null, leadList: [], summary: g.reason, stats: [], mix: null, keyLabel: "Why", keyPoint: g.reason, draw: null, read: null, details: [], caveats: [] };
   }
   const describe = (a: PlayerAction) => describeAction(a, bb, g.allInTo);
   // After the flop: measured against the hands their play points to, shown in "What they likely have".
@@ -103,10 +104,10 @@ export function feedback(g: Grade, opponents: Opponents, bb: number): Feedback {
   const win: Stat = {
     value: pct(g.win.chance),
     label: `Your chance vs ${who}`,
-    detail: `${g.street === "river" ? "Right now" : "Once all the cards are out"}, against ${names.length === 1 ? "their" : "each one's"} likely hands (below), read from their bets. Your live odds count their cards as random.`,
+    detail: "Against the hands their bets point to. Your live odds ignore their bets.",
   };
   const cost: Stat[] = g.verdict !== "good" && g.evLossBB !== null
-    ? [{ value: `−${dollars(g.evLossBB)}`, label: "Cost of this choice", detail: "On average, compared with the best play." }]
+    ? [{ value: `−${dollars(g.evLossBB)}`, label: "Cost of this choice", detail: "What this choice loses on average." }]
     : [];
   const base = { tone: g.verdict, context: context(g, opponents, bb), headline: headline(g, bb) };
   if (g.basis.kind === "chart") {
@@ -114,7 +115,7 @@ export function feedback(g: Grade, opponents: Opponents, bb: number): Feedback {
     const why = preflopWhy(g, opponents);
     return {
       ...base, mix: null, read: null, draw: null, details: [g.basis.source], caveats: [],
-      lead: text.lead, summary: text.summary, stats: preflopStats(g, opponents), keyLabel: why.label, keyPoint: why.text,
+      lead: text.lead, leadList: text.leadList, summary: text.summary, stats: preflopStats(g, opponents), keyLabel: why.label, keyPoint: why.text,
     };
   }
   const b = g.basis;
@@ -124,15 +125,15 @@ export function feedback(g: Grade, opponents: Opponents, bb: number): Feedback {
   const opp = opponents[b.villain];
   const them = b.opponents > 1 ? "everyone" : opp?.name ?? "they";
   const second: Stat = b.potOddsNeeded !== null && price && !(aggressive(g.action) && aggressive(g.best))
-    ? { value: pct(b.potOddsNeeded), label: "Needed to call", detail: `${money(price.call, bb)} ÷ ${money(price.potAfter, bb)} (your call ÷ the pot after you call).` }
+    ? { value: pct(b.potOddsNeeded), label: "Needed to call", detail: `Your ${money(price.call, bb)} call ÷ the ${money(price.potAfter, bb)} pot after it.` }
     : { value: fold === null ? "–" : pct(fold), label: bet && "to" in bet.action ? `${capital(them)} folds to ${bet.action.type === "bet" ? `a ${money(bet.action.to, bb)} bet` : `a raise to ${money(bet.action.to, bb)}`}` : "They fold to a bet", detail: "You win the pot at once." };
   const rule = evRule(g);
   const summary = evSummary(g, opp?.name, describe, (chips) => money(chips, bb));
   return {
     ...base, mix: b.mix, draw: drawLine(g),
     summary,
-    lead: null, stats: dedupe([win, second, ...cost], summary), keyLabel: rule.label, keyPoint: rule.text,
-    read: opp ? `${opp.name} plays like a ${opp.style.name.toLowerCase()}: ${firstSentence(opp.style.leak).toLowerCase()}${opp.style.id === "lag" && g.best.type === "fold" ? " Even so, your hand beats few of the hands their bets point to this time (see above)." : ""}` : null,
+    lead: null, leadList: [], stats: dedupe([win, second, ...cost], summary), keyLabel: rule.label, keyPoint: rule.text,
+    read: opp ? `${opp.name} is a ${opp.style.name.toLowerCase()}. ${firstSentence(opp.style.leak)}${opp.style.id === "lag" && g.best.type === "fold" ? " This time, though, the bets point to strong hands." : ""}` : null,
     details: [
       `Their actions narrow them to about ${b.rangeSize} likely hands.`,
       ...b.values.map((v) => `${capital(describe(v.action))}: ${signedMoney(v.evBB * bb, bb)} on average`),
@@ -141,5 +142,7 @@ export function feedback(g: Grade, opponents: Opponents, bb: number): Feedback {
   };
 }
 
+/** Everything a card says, as plain text: each piece ends its own sentence, as it reads on screen. */
 export const feedbackText = (f: Feedback) =>
-  [f.context, f.headline, f.summary, f.lead ?? "", ...f.stats.map((s) => `${s.value} ${s.label} ${s.detail}`), f.keyPoint, f.draw ?? "", f.read ?? "", ...f.details, ...f.caveats].join(" ");
+  [f.context, f.headline, f.lead ?? "", ...f.leadList, f.summary, ...f.stats.flatMap((s) => [`${s.value} ${s.label}`, s.detail]), f.keyPoint, f.draw ?? "", f.read ?? "", ...f.details, ...f.caveats]
+    .filter((t) => t.length > 0).map((t) => (/[.!?:]$/.test(t) ? t : `${t}.`)).join(" ");

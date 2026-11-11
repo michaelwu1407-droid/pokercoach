@@ -27,7 +27,7 @@ export const SEATS = [
 
 export const RULES = [
   "Play few hands, and fewer still from the early seats. Most hands should be folded before the flop.",
-  "Before you call, compare your chance to win with the chance you need. The coach shows both after every decision.",
+  "Before you call, compare your chance to win with what the call needs.",
   "Bet when worse hands will call you or better hands will fold. Otherwise check.",
 ] as const;
 
@@ -35,14 +35,14 @@ export const WORDS = [
   ["Check", "Bet nothing and pass the turn on. Only possible when nobody has bet."],
   ["Call", "Match the current bet."],
   ["Raise / re-raise", "Make the bet bigger. A re-raise is a raise after someone else raised."],
-  ["Raise to $8", "Your total bet becomes $8, including anything you already put in this round."],
-  ["Kicker", "Your other card when two players share a pair. A-K beats A-10 on an ace-high board because the king kicks higher."],
+  ["Raise to $8", "Your total bet this round becomes $8."],
+  ["Kicker", "Your other card when two players have the same pair. The higher one wins."],
   ["Fold", "Give up the hand and anything you put in."],
   ["Bluff", "Bet with a weak hand so that better hands fold."],
   ["Chance to win", "How often your hand would win if all the cards were dealt out now."],
   ["Needed to call", "The chance to win at which a call breaks even: your call divided by the pot after you call."],
   ["Outs", "Cards still in the deck that would make your hand."],
-  ["Cost on average", "How much your choice gives up over many hands compared with the best option. Losing one hand is luck. Cost is skill."],
+  ["Cost on average", "What your choice loses on average, next to the best one. One lost hand is luck. Cost is skill."],
 ] as const;
 
 export const SHEET = [
@@ -74,7 +74,7 @@ export function Help({ onClose }: { onClose: () => void }) {
           <h2>How to play</h2>
           <button data-testid="help-close" onClick={onClose} aria-label="Close">Close</button>
         </div>
-        <p>Make the best five-card hand from your two cards and the five shared cards. Everyone starts with $100. Bet when you are ahead or can make them fold. After each decision the coach shows your chance to win, what they likely had, and what your choice cost.</p>
+        <p>Make the best five-card hand from your two cards and five shared cards. Everyone starts with $100. Bet when you are ahead, or when they will fold. After each move, the coach shows what your choice cost.</p>
         <h3>Three rules to start with</h3>
         <ol className="plain-list">{RULES.map((r) => <li key={r}>{r}</li>)}</ol>
         <h3>Hands, strongest first</h3>
@@ -89,7 +89,7 @@ export function Help({ onClose }: { onClose: () => void }) {
         <dl className="terms">{SHEET.map(([t, d]) => <div key={t}><dt>{t}</dt><dd>{d}</dd></div>)}</dl>
         <p className="muted">Quick rule for draws: count your outs, multiply by 4 on the flop or by 2 on the turn. That is roughly your chance to hit.</p>
         <h3>The live trainer</h3>
-        <p className="muted">Switch it on from the top bar. On your turn it gives you three checks (your seat, the price of calling, and how that player has played), then a hint and the best move if you ask. It warns you before a costly mistake. Moves it helped with stay out of your progress numbers.</p>
+        <p className="muted">Switch it on from the top bar. On your turn it gives three quick checks. Ask for a hint or the best move if you want. It warns you before a costly mistake. Moves it helped with stay out of your progress numbers.</p>
         <h3>Keys</h3>
         <ul className="plain-list">{KEYS.map(([k, d]) => <li key={k}><kbd>{k}</kbd> {d}</li>)}</ul>
         <button className="primary wide sheet-start" data-testid="help-start" onClick={onClose}>Start playing</button>

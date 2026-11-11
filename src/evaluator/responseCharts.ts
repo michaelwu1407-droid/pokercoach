@@ -81,7 +81,7 @@ export const chartMove = (c: ResponseChart, cls: HandClass): ChartMove =>
   c.raise.has(cls) ? "raise" : c.call.has(cls) ? "call" : "fold";
 
 export const RESPONSE_CHART_SOURCE =
-  "Based on the default charts for six-player tables with $100 stacks, written for this app. They are a close approximation, not a published source.";
+  "From this app's hand lists for six players with $100 each. They are close to standard advice.";
 
 /** A run of side cards (or of pairs), as rank indexes from low to high. */
 export type Run = readonly [number, number];
