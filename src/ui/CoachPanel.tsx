@@ -27,7 +27,7 @@ interface Props {
 export function CoachPanel({ decisions, opponents, bigBlind, moment, newTable, news }: Props) {
   const [open, setOpen] = useState<number | null>(null);
   const latest = decisions[decisions.length - 1];
-  const cardFor = (d: Decision) => (d.grade ? <FeedbackCard f={feedback(d.grade, opponents, bigBlind)} /> : <p className="muted" data-testid="grading">Looking at your decision…</p>);
+  const cardFor = (d: Decision, inList = false) => (d.grade ? <FeedbackCard f={feedback(d.grade, opponents, bigBlind)} showContext={!inList} /> : <p className="muted" data-testid="grading">Looking at your decision…</p>);
   if (!latest) {
     return (
       <aside className="coach coach-empty" data-testid="coach">
@@ -71,7 +71,7 @@ export function CoachPanel({ decisions, opponents, bigBlind, moment, newTable, n
             );
           })}
         </ol>
-        {cardFor(decisions[shown]!)}
+        {cardFor(decisions[shown]!, true)}
       </aside>
     );
   }

@@ -56,7 +56,7 @@ function lead(b: Chart, g: Graded, o: Opponents): string {
   const raiser = nameOf(o, g.facing?.by) ?? "the raiser";
   const types = typesToPlay(b.groups);
   switch (b.spot) {
-    case "rfi": return `Nobody has raised. From the ${seatName(b.position)} seat (${SEAT_HINT[b.position]}), raise ${types}.`;
+    case "rfi": return `Nobody has raised. From the ${seatName(b.position)} seat, raise ${types}.`;
     case "vs-limp": {
       const callers = g.win.against.map((seat) => nameOf(o, seat) ?? "a player");
       return `${callers.length ? and(callers) : "Players"} only called. From the ${seatName(b.position)} seat, raise ${types}.`;

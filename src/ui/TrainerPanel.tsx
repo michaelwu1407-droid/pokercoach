@@ -12,7 +12,8 @@ const capital = (s: string) => s[0]!.toUpperCase() + s.slice(1);
 export function TrainerPanel({ trainer, brief, opponents, bigBlind }: { trainer: Trainer; brief: Brief; opponents: Opponents; bigBlind: number }) {
   const best = trainer.best && trainer.best.graded ? trainer.best : null;
   const f = best ? feedback(best, opponents, bigBlind) : null;
-  const hint = f ? (f.lead ?? f.keyPoint) : null;
+  // The Position and Price checks already say your seat and that nobody raised, so the hint is just the rule.
+  const hint = f ? (f.lead ?? f.keyPoint).replace(/^Nobody has raised\. From the \w+ seat, raise/, "Raise").replace(/ From the \w+ seat, raise/, " Raise") : null;
   return (
     <aside className="coach trainer" data-testid="trainer">
       <div className="micro-label">Live trainer · your three checks</div>
@@ -37,8 +38,6 @@ export function TrainerPanel({ trainer, brief, opponents, bigBlind }: { trainer:
       <details className="trainer-why">
         <summary>Why a poker trainer works differently from a chess one</summary>
         <ul>
-          <li>A chess coach sees the whole board. In poker the cards that decide the hand are hidden, so the trainer never peeks: it works only from what you can see and how each player has acted.</li>
-          <li>Chess usually has one best move. In poker several plays can be close, so the trainer teaches the checks that lead to a good choice rather than a single move.</li>
           <li>The same hand can be a call against a wild player and a fold against a tight one, so the trainer tracks how each player has played this game.</li>
           <li>A good poker decision can lose and a bad one can win. Judge yourself by the decision, never by the result.</li>
         </ul>

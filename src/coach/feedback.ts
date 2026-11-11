@@ -83,6 +83,14 @@ function headline(g: Graded, bb: number): string {
 /** The style's description without its advice, which can disagree with this spot's grade. */
 const firstSentence = (s: string) => s.slice(0, s.indexOf(".") + 1);
 
+/**
+ * A number the summary already quotes is shown again only when its row adds something: the sum
+ * behind it ("$29 ÷ $102"), the cost, or what a chance is measured against. Otherwise it is dropped.
+ */
+function dedupe(stats: readonly Stat[], summary: string): Stat[] {
+  return stats.filter((s) => s.label === "Needed to call" || s.label === "Cost of this choice" || s.label.startsWith("Your chance") || !new RegExp(`(^|[^\\d.])${s.value.replace(/[.$]/g, "\\$&")}(?!\\d)`).test(summary));
+}
+
 export function feedback(g: Grade, opponents: Opponents, bb: number): Feedback {
   if (!g.graded) {
     const ctx = `${STREET[g.street]}, you chose ${describeAction(g.action, bb)}.`;
@@ -95,7 +103,7 @@ export function feedback(g: Grade, opponents: Opponents, bb: number): Feedback {
   const win: Stat = {
     value: pct(g.win.chance),
     label: `Your chance vs ${who}`,
-    detail: `${g.street === "river" ? "Right now" : "Once all the cards are out"}, against ${names.length === 1 ? "their" : "each one's"} likely hands (below). Your live odds treat their cards as random; this reads their bets too.`,
+    detail: `${g.street === "river" ? "Right now" : "Once all the cards are out"}, against ${names.length === 1 ? "their" : "each one's"} likely hands (below), read from their bets. Your live odds count their cards as random.`,
   };
   const cost: Stat[] = g.verdict !== "good" && g.evLossBB !== null
     ? [{ value: `−${dollars(g.evLossBB)}`, label: "Cost of this choice", detail: "On average, compared with the best play." }]
@@ -119,10 +127,11 @@ export function feedback(g: Grade, opponents: Opponents, bb: number): Feedback {
     ? { value: pct(b.potOddsNeeded), label: "Needed to call", detail: `${money(price.call, bb)} ÷ ${money(price.potAfter, bb)} (your call ÷ the pot after you call).` }
     : { value: fold === null ? "–" : pct(fold), label: bet && "to" in bet.action ? `${capital(them)} folds to ${bet.action.type === "bet" ? `a ${money(bet.action.to, bb)} bet` : `a raise to ${money(bet.action.to, bb)}`}` : "They fold to a bet", detail: "You win the pot at once." };
   const rule = evRule(g);
+  const summary = evSummary(g, opp?.name, describe, (chips) => money(chips, bb));
   return {
     ...base, mix: b.mix, draw: drawLine(g),
-    summary: evSummary(g, opp?.name, describe, (chips) => money(chips, bb)),
-    lead: null, stats: [win, second, ...cost], keyLabel: rule.label, keyPoint: rule.text,
+    summary,
+    lead: null, stats: dedupe([win, second, ...cost], summary), keyLabel: rule.label, keyPoint: rule.text,
     read: opp ? `${opp.name} plays like a ${opp.style.name.toLowerCase()}: ${firstSentence(opp.style.leak).toLowerCase()}${opp.style.id === "lag" && g.best.type === "fold" ? " Even so, your hand beats few of the hands their bets point to this time (see above)." : ""}` : null,
     details: [
       `Their actions narrow them to about ${b.rangeSize} likely hands.`,

@@ -20,7 +20,7 @@ describe("live odds", () => {
     const [first] = oddsTimeline(hand(deck, []), 0);
     expect(first!.delta).toBeNull();
     expect(first!.chance).toBeGreaterThan(0.4);
-    expect(first!.reason).toMatch(/^17% is a fair share against 5 other players; pocket Aces at \d+% is much better/);
+    expect(first!.reason).toMatch(/^A fair share against 5 other players is 17%, so your hand is much better/);
   });
 
   it("goes up with each fold and says who folded", () => {

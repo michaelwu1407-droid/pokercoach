@@ -127,7 +127,7 @@ export function oddsTimeline(events: readonly HandEvent[], hero: SeatIndex): Odd
   const versus = ratio > 1.4 ? "much better" : ratio > 1.1 ? "a bit better" : ratio < 0.7 ? "much worse" : ratio < 0.9 ? "a bit worse" : "about the same";
   const steps: OddsStep[] = [{
     chance: c0, delta: null,
-    reason: `${pct(average)} is a fair share against ${n0} other player${n0 === 1 ? "" : "s"}; ${describeHand(hole, []).replace("Pocket", "pocket")} at ${pct(c0)} is ${versus}. ${startNote(hole)}.`,
+    reason: `A fair share against ${n0} other player${n0 === 1 ? "" : "s"} is ${pct(average)}, so your hand is ${versus}. ${startNote(hole)}.`,
   }];
   for (const a of actions) {
     if (a.type === "start") break;

@@ -49,7 +49,7 @@ export function Table({ st, events, onSkip }: { st: HandState; events: readonly 
           <div key={i} title={`${s.id}, ${seatName(pos)} seat`} className={`seat${s.folded ? " seat-folded" : ""}${toAct ? " seat-active" : ""}${won > 0 ? " seat-winner" : ""}`} style={style} data-testid={`seat-${i}`}>
             {pos === "BTN" && <span className="dealer-button" title="Dealer">D</span>}
             <div className="seat-name">
-              {s.id}{i === HERO && <span className="seat-pos"> · {seatName(pos)}</span>}{s.folded && <span className="seat-pos"> · folded</span>}
+              {s.id}{i === HERO && <span className="seat-pos"> · {seatName(pos)}</span>}
             </div>
             <div className="seat-cards">
               {!s.folded && <CardView card={s.hole[0]} hidden={!show} />}
@@ -58,7 +58,6 @@ export function Table({ st, events, onSkip }: { st: HandState; events: readonly 
             <div className="seat-stack">{bbOf(st, s.stack)}</div>
             {label ? <div className={`seat-action action-${label.kind}`}>{label.text}</div>
               : s.street > 0 && <div className="seat-action action-blind">{st.street === "preflop" && (pos === "SB" || pos === "BB") ? `${seatName(pos)} ` : ""}{bbOf(st, s.street)}</div>}
-            {won > 0 && <div className="seat-won">Wins {bbOf(st, won)}</div>}
           </div>
         );
       })}

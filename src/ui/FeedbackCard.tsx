@@ -13,7 +13,8 @@ const readOpen = () => {
 };
 
 /** Verdict and one line up front. The full explanation is one click away, and stays open once you open it. */
-export function FeedbackCard({ f }: { f: Feedback }) {
+/** showContext is off in the end-of-hand list, whose selected row already says what you did. */
+export function FeedbackCard({ f, showContext = true }: { f: Feedback; showContext?: boolean }) {
   const [open, setOpen] = useState(readOpen);
   const remember = (o: boolean) => {
     setOpen(o);
@@ -25,7 +26,7 @@ export function FeedbackCard({ f }: { f: Feedback }) {
   };
   return (
     <div className={`feedback tone-${f.tone}`} data-testid="feedback">
-      <div className="context">{f.context}</div>
+      {showContext && <div className="context">{f.context}</div>}
       <h3 className="feedback-headline"><span className="verdict-dot" aria-hidden="true" />{f.headline}</h3>
       {f.lead && <p className="lead" data-testid="lead">{f.lead}</p>}
       <p className="summary" data-testid="summary">{f.summary}</p>
