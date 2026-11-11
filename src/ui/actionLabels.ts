@@ -8,6 +8,8 @@ export interface SeatLabel {
   readonly text: string;
   /** Styles the bubble: a bet or raise stands out, a fold is muted. */
   readonly kind: "fold" | "check" | "call" | "bet" | "raise" | "all-in";
+  /** Position of the action in the event log, so the newest bubble can stand out. */
+  readonly at: number;
 }
 
 /** What each seat last did on the current street, as shown in its bubble. */
@@ -16,16 +18,18 @@ export function lastActions(events: readonly HandEvent[]): Map<SeatIndex, SeatLa
   const out = new Map<SeatIndex, SeatLabel>();
   if (!first) return out;
   let st: HandState = reduce([first]);
-  for (const e of rest) {
+  for (const [i, e] of rest.entries()) {
     if (e.type === "start") continue;
+    const at = i + 1;
     const next = apply(st, e);
     const bb = st.config.bigBlind;
     const allIn = next.seats[e.seat]!.stack === 0 && e.type !== "fold" && e.type !== "check";
-    const label: SeatLabel = e.type === "fold" ? { text: "Fold", kind: "fold" }
-      : e.type === "check" ? { text: "Check", kind: "check" }
-      : allIn ? { text: allInLabel(next.seats[e.seat]!.street || next.seats[e.seat]!.total, bb), kind: "all-in" }
-      : e.type === "call" ? { text: `Call ${money(next.seats[e.seat]!.street, bb)}`, kind: "call" }
-      : e.type === "bet" ? { text: `Bet ${money(e.to, bb)}`, kind: "bet" } : { text: `Raise to ${money(e.to, bb)}`, kind: "raise" };
+    // A call's amount is on the chips in front of the seat, so the bubble just says "Call".
+    const label: SeatLabel = e.type === "fold" ? { text: "Fold", kind: "fold", at }
+      : e.type === "check" ? { text: "Check", kind: "check", at }
+      : allIn ? { text: allInLabel(next.seats[e.seat]!.street || next.seats[e.seat]!.total, bb), kind: "all-in", at }
+      : e.type === "call" ? { text: "Call", kind: "call", at }
+      : e.type === "bet" ? { text: `Bet ${money(e.to, bb)}`, kind: "bet", at } : { text: `Raise to ${money(e.to, bb)}`, kind: "raise", at };
     if (next.street !== st.street) {
       out.clear();
       if (e.type === "fold") out.set(e.seat, label);

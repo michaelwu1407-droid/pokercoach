@@ -1,7 +1,6 @@
 import { useCallback, useMemo, useState } from "react";
 import { oddsTimeline } from "../coach/liveOdds";
 import { signedMoney } from "../coach/words";
-import { describeHand } from "../evaluator/describe";
 import { isMiss } from "../grading/types";
 import { CORE_CONCEPTS } from "../learn/concepts";
 import { drillQueue } from "../learn/learner";
@@ -79,7 +78,7 @@ export function App() {
             )}
             <Table st={st} events={game.shown.events} onSkip={game.skip} />
             <div className="controls">
-              <OddsPanel hand={describeHand(me.hole, st.board)} folded={me.folded} over={st.phase === "complete"} steps={odds} />
+              <OddsPanel folded={me.folded} over={st.phase === "complete"} steps={odds} />
               <div className="next-row">
                 {heroTurn && trainer.warn && <TrainerWarning trainer={trainer} opponents={game.hand.opponents} bigBlind={bb} />}
                 {heroTurn && !trainer.warn && trainer.checking && <p className="muted small waiting">Checking your move…</p>}

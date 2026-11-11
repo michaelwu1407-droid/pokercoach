@@ -34,6 +34,30 @@ page.setDefaultTimeout(5000);
 const errors = [];
 page.on("pageerror", (e) => errors.push(String(e)));
 
+
+/** Pairs of table pieces that collide. Pieces of one seat may overlap each other, like a hand tag over its cards. */
+const collisions = () => page.evaluate(() => {
+  const pieces = [];
+  const add = (group, el) => {
+    const r = el.getBoundingClientRect();
+    if (r.width > 0 && r.height > 0 && getComputedStyle(el).visibility !== "hidden") pieces.push({ group, name: el.className || el.dataset.testid, r });
+  };
+  document.querySelectorAll("[data-testid^=seat-]").forEach((seat, i) => {
+    seat.querySelectorAll(".seat-cards .card, .seat-plate, .bubble, .hand-tag").forEach((el) => add(`seat${i}`, el));
+  });
+  document.querySelectorAll(".bet-chip").forEach((el, i) => add(`chip${i}`, el));
+  document.querySelectorAll(".board, .pot, .result").forEach((el) => add("centre", el));
+  document.querySelectorAll(".waiting, .odds-panel").forEach((el) => add("below", el));
+  const hit = (a, b) => a.left < b.right - 1 && b.left < a.right - 1 && a.top < b.bottom - 1 && b.top < a.bottom - 1;
+  const out = [];
+  for (const [k, a] of pieces.entries())
+    for (const b of pieces.slice(k + 1)) if (a.group !== b.group && hit(a.r, b.r)) out.push(`${a.group} ${a.name} / ${b.group} ${b.name}`);
+  return out;
+}).then(async (out) => {
+  if (out.length) await page.screenshot({ path: `${OUT}/collision.png` });
+  return out;
+});
+
 try {
   await page.goto(`http://localhost:${PORT}/`);
   await page.getByTestId("help").waitFor();
@@ -43,7 +67,7 @@ try {
   await page.keyboard.press("Escape");
   await page.getByTestId("help").waitFor({ state: "hidden" });
   await page.getByTestId("table").waitFor();
-  assert.match(await page.getByTestId("you-have").innerText(), /You have: /);
+  assert.match(await page.getByTestId("you-have").innerText(), /^(Pocket \w+|\w+-\w+ (suited|offsuit))$/, "your starting hand is named under your cards");
   assert.match(await page.getByTestId("odds-chance").innerText(), /\d+% to win/, "live odds show from the deal");
   assert.ok((await page.getByTestId("odds-why").innerText()).length > 20, "starting odds come with a reason");
   const seen = { keyed: 0, sized: 0, skipped: 0, feedback: 0, mix: 0, read: 0, reviews: 0, recaps: 0, reopened: 0, hands: 0, decisions: 0, maxButtons: 0 };
@@ -52,6 +76,7 @@ try {
   // A deliberately loose player: raise when possible, else call. It makes mistakes the coach must catch.
   for (let step = 0; step < 500 && seen.hands < 12; step++) {
     if (process.env.E2E_DEBUG) console.log(step, JSON.stringify(seen));
+    assert.deepEqual(await collisions(), [], "nothing on the table overlaps");
     const screen = await page.locator("main").innerText();
     const hit = screen.split("\n").find((line) => JARGON.test(line));
     assert.equal(hit, undefined, `jargon on screen: "${hit}"`);
@@ -218,6 +243,16 @@ try {
   await page.getByTestId("trainer-toggle").click();
 
   await page.setViewportSize({ width: 390, height: 844 });
+  for (let step = 0, hands = 0; step < 200 && hands < 4; step++) {
+    assert.deepEqual(await collisions(), [], "nothing on the phone table overlaps");
+    if (await page.getByTestId("next-hand").isVisible()) { hands++; await page.getByTestId("next-hand").click(); continue; }
+    if (await page.getByTestId("action-bar").isVisible()) {
+      await page.getByTestId((await page.getByTestId("act-call").isVisible()) ? "act-call" : (await page.getByTestId("act-check").isVisible()) ? "act-check" : "act-fold").click();
+      continue;
+    }
+    await page.keyboard.press("Space");
+    await page.waitForTimeout(50);
+  }
   await page.getByTestId("tab-progress").click();
   const scrollW = await page.evaluate(() => document.documentElement.scrollWidth);
   assert.ok(scrollW <= 390, `no horizontal scroll on phone width (got ${scrollW})`);
