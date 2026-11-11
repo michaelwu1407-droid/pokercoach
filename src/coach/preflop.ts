@@ -20,7 +20,7 @@ function playPhrase(g: HandGroup): string {
     case "aceBig": return g.lowRank <= 8 ? `Aces with a Ten or higher${suited}` : g.lowRank === 11 ? `Ace-King${suited}` : `Ace-${NAMES[g.lowRank]}${suited} or better`;
     case "bothBig": return `two cards Ten or higher${g.allSuited ? " of the same suit" : ""}`;
     case "aceSmall": return g.allSuited ? "suited Aces" : "any Ace";
-    case "suited": return "good suited hands";
+    case "suited": return "suited hands with close cards or a high card (like Nine-Eight)";
     case "other": return "most other hands";
   }
 }

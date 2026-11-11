@@ -39,7 +39,8 @@ function position(st: HandState, hero: SeatIndex): string {
     const pos = positionOf(st.config, hero);
     const where = `You are in the ${seatName(pos)} seat (${SEAT_HINT[pos]}).`;
     if (pos === "UTG" || pos === "HJ") return `${where} Most players act after you, so play only strong hands.`;
-    if (pos === "CO" || pos === "BTN") return `${where} Few players act after you and you act late after the flop, so you can play more hands.`;
+    if (pos === "BTN") return "You are in the Dealer seat: only the blinds act after you now, and you act last after the flop, so play more hands.";
+    if (pos === "CO") return `${where} Only a few players act after you, so you can play more hands.`;
     return `${where} You will act first after the flop, so play fewer hands than the Dealer.`;
   }
   if (order === "last") return "You act last this round, so you see their moves before you choose: an edge.";
@@ -74,10 +75,10 @@ function read(name: string, seen: Seen, facing: "bet" | "raise" | "re-raise" | n
   if (!p || p.hands < MIN_HANDS || p.played === 0) return `Too few hands to judge ${name} yet: watch which hands they play.`;
   const play = p.played / p.hands, raise = p.raised / p.played;
   const how = `${name} plays about 1 hand in ${Math.max(1, Math.round(1 / play))} and ${raise > 0.6 ? "raises most of them" : raise < 0.25 ? "mostly just calls" : "raises some of them"}`;
-  if (!facing) return `${how}.`;
+  if (!facing) return play < 0.2 ? `${how}, so when they stay in, expect a real hand.` : play > 0.4 ? `${how}, so they often play weak hands: bet your good ones.` : `${how}, so expect a fair hand when they play.`;
   if (play < 0.2) return `${how}, so their ${facing} usually means a strong hand.`;
   if (play > 0.4) return `${how}, so their ${facing} is often not that strong.`;
-  return `${how}, so treat their ${facing} as a decent hand.`;
+  return `${how}, so their ${facing} is usually a real hand, though not always a strong one.`;
 }
 
 function player(st: HandState, hero: SeatIndex, opponents: Opponents, seen: Seen): string {
@@ -91,6 +92,11 @@ function player(st: HandState, hero: SeatIndex, opponents: Opponents, seen: Seen
     return `${name} ${verb}. ${read(name, seen, verb === "bet" ? "bet" : verb === "re-raised" ? "re-raise" : "raise")}`;
   }
   const live = st.seats.flatMap((s, i) => (i !== hero && !s.folded ? [opponents[i]?.name] : [])).filter((n): n is string => !!n);
+  if (st.street === "preflop") {
+    // Before anyone has put chips in by choice there is nobody to read; only who is left to act matters.
+    const after = st.pending.filter((p) => p !== hero).length;
+    return after <= 2 ? `Only ${after === 1 ? "1 player is" : `${after} players are`} left to act after you, so more hands are worth a raise.` : "";
+  }
   if (live.length > 1) return `${live.length} players are still in, so you need a stronger hand than against one.`;
   return live[0] ? read(live[0], seen, null) : "";
 }
