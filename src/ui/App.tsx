@@ -1,6 +1,5 @@
-import { useCallback, useMemo, useState } from "react";
+import { Fragment, useCallback, useMemo, useState } from "react";
 import { oddsTimeline } from "../coach/liveOdds";
-import { signedMoney } from "../coach/words";
 import { isMiss } from "../grading/types";
 import { CORE_CONCEPTS } from "../learn/concepts";
 import { drillQueue } from "../learn/learner";
@@ -8,9 +7,10 @@ import { HERO, state } from "../session/session";
 import { ActionBar } from "./ActionBar";
 import { CoachPanel } from "./CoachPanel";
 import { Help } from "./Help";
-import { OddsPanel } from "./OddsPanel";
+import { OddsChance, OddsPanel } from "./OddsPanel";
 import { Progress } from "./Progress";
 import { Table } from "./Table";
+import { handOverLine } from "./tableView";
 import { gameOutcome, tableNews } from "./tableNews";
 import { useGame } from "./useGame";
 import { TrainerPanel, TrainerWarning } from "./TrainerPanel";
@@ -84,7 +84,8 @@ export function App() {
             {game.mode.kind === "drill" && (
               <p className="banner" data-testid="drill-banner">Practice {game.mode.index + 1} of {game.mode.queue.length}: you got this spot wrong before.</p>
             )}
-            <Table st={st} events={game.shown.events} onSkip={game.skip} />
+            <Table st={st} events={game.shown.events} onSkip={game.skip}
+              heroAside={<OddsChance folded={me.folded} over={st.phase === "complete"} steps={odds} />} />
             <div className="controls">
               <OddsPanel folded={me.folded} over={st.phase === "complete"} steps={odds} />
               <div className="next-row">
@@ -95,7 +96,8 @@ export function App() {
                 {handOver && (
                   <div className="hand-over" data-testid="review">
                     <span>
-                      {signedMoney(net, bb)} profit this hand{drilling ? "" : ` · ${signedMoney(game.table.net + net, bb)} this game`}
+                      {/* Each half stays whole, so a narrow screen breaks the line at the dot. */}
+                      {handOverLine(net, game.table.net + net, bb).map((part, k) => <Fragment key={k}>{k > 0 && " · "}<span className="nowrap">{part}</span></Fragment>)}
                       {!drilling && outcome === "lost" ? " · You are out of chips. Next hand starts a new game." : ""}
                       {!drilling && outcome === "won" ? " · You won: everyone else is out of chips!" : ""}
                     </span>

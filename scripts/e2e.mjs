@@ -35,21 +35,33 @@ const errors = [];
 page.on("pageerror", (e) => errors.push(String(e)));
 
 
-/** Pairs of table pieces that collide. Pieces of one seat may overlap each other, like a hand tag over its cards. */
+/** Table pieces that collide, plus tags off screen and amounts shown twice. Pieces of one seat may overlap each other. */
 const collisions = () => page.evaluate(() => {
   const pieces = [];
+  const out = [];
   const add = (group, el) => {
     const r = el.getBoundingClientRect();
     if (r.width > 0 && r.height > 0 && getComputedStyle(el).visibility !== "hidden") pieces.push({ group, name: el.className || el.dataset.testid, r });
   };
   document.querySelectorAll("[data-testid^=seat-]").forEach((seat, i) => {
-    seat.querySelectorAll(".seat-cards .card, .seat-plate, .bubble, .hand-tag").forEach((el) => add(`seat${i}`, el));
+    seat.querySelectorAll(".seat-cards .card, .seat-plate, .bubble, .hand-tag, .odds-chance").forEach((el) => add(`seat${i}`, el));
+  });
+  // The dealer button is its own piece: it may not cover any seat box, its own included.
+  document.querySelectorAll(".dealer-button").forEach((el) => add("dealer", el));
+  // Hand tags wrap inside their seat, so none runs off the screen.
+  document.querySelectorAll(".hand-tag").forEach((el) => {
+    const r = el.getBoundingClientRect();
+    if (r.left < 0 || r.right > window.innerWidth) out.push(`hand tag off screen: ${el.textContent}`);
+  });
+  // While chips show an amount, the bubble names only the action: no amount twice.
+  document.querySelectorAll(".bet-chip").forEach((chip) => {
+    const bubble = document.querySelector(`[data-testid=bubble-${chip.dataset.testid.slice(4)}]`);
+    if (bubble?.textContent.includes("$")) out.push(`amount in chips and bubble: ${bubble.textContent}`);
   });
   document.querySelectorAll(".bet-chip").forEach((el, i) => add(`chip${i}`, el));
   document.querySelectorAll(".board, .pot, .result").forEach((el) => add("centre", el));
   document.querySelectorAll(".waiting, .odds-panel").forEach((el) => add("below", el));
   const hit = (a, b) => a.left < b.right - 1 && b.left < a.right - 1 && a.top < b.bottom - 1 && b.top < a.bottom - 1;
-  const out = [];
   for (const [k, a] of pieces.entries())
     for (const b of pieces.slice(k + 1)) if (a.group !== b.group && hit(a.r, b.r)) out.push(`${a.group} ${a.name} / ${b.group} ${b.name}`);
   return out;
@@ -104,7 +116,7 @@ try {
     }
     if (await page.getByTestId("next-hand").isVisible()) {
       seen.hands++;
-      assert.match(await page.getByTestId("review").innerText(), /this hand/);
+      assert.match(await page.getByTestId("review").innerText(), /^(Won \$[\d.]+|Lost \$[\d.]+|Broke even) this hand · (Up \$[\d.]+|Down \$[\d.]+|Even) this game/);
       if (await page.getByTestId("review-list").isVisible()) {
         // Every decision of the hand is listed; opening the first shows its card.
         seen.reviews++;

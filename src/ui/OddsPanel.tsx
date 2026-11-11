@@ -9,19 +9,24 @@ function Delta({ d }: { d: number | null }) {
 }
 
 /**
- * Your live chance to win, under your cards. Each change comes with one plain reason.
- * The odds use only what anyone at the table can see, so they never give away the coach's answer.
+ * Your live chance to win, in a pill beside your seat. The odds use only what anyone at the table
+ * can see, so they never give away the coach's answer. Once the hand is over the cards are known, so it goes.
  */
+export function OddsChance({ folded, over, steps }: { folded: boolean; over: boolean; steps: readonly OddsStep[] }) {
+  const last = steps[steps.length - 1];
+  if (folded || over || !last) return null;
+  return (
+    <span className="odds-chance" data-testid="odds-chance">
+      <b>{pct(last.chance)}</b> to win <Delta d={last.delta} /> <span className="odds-basis">vs random hands</span>
+    </span>
+  );
+}
+
+/** Under the table, on one line where it fits: why your odds last changed, then how they moved all hand. */
 export function OddsPanel({ folded, over, steps }: { folded: boolean; over: boolean; steps: readonly OddsStep[] }) {
-  // Once the hand is over the cards are known, so only the history stays.
   const last = over ? undefined : steps[steps.length - 1];
   return (
     <div className="odds-panel" data-testid="odds">
-      {!folded && last && (
-        <span className="odds-chance" data-testid="odds-chance">
-          <b>{pct(last.chance)}</b> to win <Delta d={last.delta} /> <span className="odds-basis">vs random hands</span>
-        </span>
-      )}
       {!folded && last && <p className="odds-why" data-testid="odds-why">{last.reason}</p>}
       {steps.length > 1 && (
         <details className="odds-history">

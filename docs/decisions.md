@@ -117,3 +117,13 @@ The hint (the spot's rule of thumb) and the best move stay hidden until asked. A
 ## 26. The table plays like a poker game
 
 Compared with 247 Free Poker and PokerNow, the table felt like a form. Now the board and your cards are large, the pot is the biggest text on the felt, each player's last action is a speech bubble over their head, and the chips put in this round sit on the felt in front of each seat. At showdown the board cards the winner did not use are dimmed and every shown hand is named under its cards (`src/evaluator/bestFive.ts`), so the learner sees why the winner won. Your hand's name sits under your cards all hand. Everything the table draws comes from one pure view model (`src/ui/tableView.ts`). Motion is short and turned off for people who ask for reduced motion. Sounds are synthesized, start on, and can be muted from the top bar. The browser test fails when seats, bubbles, chips, tags or the board overlap.
+
+## 27. Table polish after a beginner's side-by-side with 247 Free Poker
+
+A beginner scored the table 7/10 against 247 Free Poker's 8/10. The fixes, all decided in `src/ui/tableView.ts` and checked by the browser test:
+
+- **Shown hands are readable.** Opponents' cards at showdown are drawn near board size, with the hand name below them, never over them. A seat is pinned by its box, so bigger cards grow upward, away from the board.
+- **Each number once.** While chips show an amount, the bubble says only "Bet", "Raise", "Call". The hand result shows once: the "+$X" beside your seat, and the bar reads "Won $X this hand · Up $Y this game".
+- **The winner's unused cards dim**, as the unused board cards already did, so the best five stands out.
+- **A shorter stack under your seat.** Your odds sit beside your seat box; the reason and the history share one line.
+- **Seats sit off the rail,** folded seats stay readable, the dealer button sits outside the seat box, and your bubble sits above your cards like everyone else's. At four or five players, seats use the six-seat spots, because even spacing puts them level with the board's ends, where a phone has no room.

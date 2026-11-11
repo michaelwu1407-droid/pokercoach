@@ -39,6 +39,8 @@ export interface SeatView {
   /** Chips put in this round, blinds included, shown as a pill on the felt. At the end all chips are in the pot. */
   readonly bet: string | null;
   readonly cards: readonly SeatCard[];
+  /** An opponent's cards face up at showdown: drawn near board size so you can read them. */
+  readonly showing: boolean;
   readonly tag: HandTag | null;
 }
 
@@ -50,6 +52,11 @@ export interface TableView {
   /** "+$12" when you made a profit on the hand just finished. */
   readonly heroWin: string | null;
 }
+
+/** While a chip pill shows the amount, the bubble names only the action, so no amount shows twice. */
+const SHORT: Record<SeatLabel["kind"], string> = {
+  fold: "Fold", check: "Check", call: "Call", bet: "Bet", raise: "Raise", "all-in": "All-in",
+};
 
 /** Chips a seat got back only because nobody matched them. Winning those is not winning the hand. */
 function refund(st: HandState, i: SeatIndex): number {
@@ -65,29 +72,32 @@ export function tableView(st: HandState, events: readonly HandEvent[]): TableVie
   const winners = new Set(st.seats.flatMap((s, i) => (!s.folded && paid(i) > refund(st, i) ? [i] : [])));
   const labels = lastActions(events);
   const newest = Math.max(-1, ...[...labels.values()].map((l) => l.at));
-  const played = showdown
-    ? new Set([...winners].flatMap((i) => bestFive([...st.seats[i]!.hole, ...st.board])))
-    : null;
+  // Each winner's best five: their hole cards outside it dim, and board cards no winner used dim.
+  const best = new Map([...winners].map((i) => [i, new Set(showdown ? bestFive([...st.seats[i]!.hole, ...st.board]) : [])]));
+  const played = showdown ? new Set([...best.values()].flatMap((b) => [...b])) : null;
 
   const seats = st.seats.map((s, i): SeatView => {
     const pos = positionOf(st.config, i);
     const isHero = i === HERO;
     const shown = showdown && !s.folded;
     const label = labels.get(i);
+    const bet = !over && s.street > 0 ? money(s.street, bb) : null;
     const blind = !label && st.street === "preflop" && s.street > 0 && (pos === "SB" || pos === "BB");
-    const bubble: Bubble | null = label ? { text: label.text, kind: label.kind, latest: label.at === newest }
+    const bubble: Bubble | null = label ? { text: bet ? SHORT[label.kind] : label.text, kind: label.kind, latest: label.at === newest }
       : blind ? { text: seatName(pos), kind: "blind", latest: false } : null;
     const winner = winners.has(i);
     const tag: HandTag | null = shown
       ? { text: handName(evaluate([...s.hole, ...st.board])), tone: winner ? "winner" : "loser" }
       : isHero ? { text: describeHand(s.hole, st.board), tone: s.folded ? "folded" : "yours" } : null;
     // Opponents' folded cards leave the table; yours stay, greyed, so you can still see what you let go.
-    const cards = s.folded && !isHero ? [] : s.hole.map((card) => ({ card, hidden: !isHero && !shown, dim: shown && !winner }));
+    // At showdown a loser's cards dim; a winner's dim only where they are not part of the best five.
+    const used = best.get(i);
+    const cards = s.folded && !isHero ? [] : s.hole.map((card) => ({ card, hidden: !isHero && !shown, dim: shown && !(used?.has(card) ?? false) }));
     return {
       // Once the hand is over the pot is paid out, so the stack shown includes what the seat won.
       index: i, name: s.id, seat: seatName(pos), stack: money(s.stack + (st.phase === "complete" ? st.payouts.filter((p) => p.seat === i).reduce((t, p) => t + p.amount, 0) : 0), bb), isHero, isDealer: pos === "BTN",
       folded: s.folded, toAct: st.phase === "betting" && st.toAct === i, winner,
-      bubble, bet: !over && s.street > 0 ? money(s.street, bb) : null, cards, tag,
+      bubble, bet, cards, showing: shown && !isHero, tag,
     };
   });
 
@@ -102,4 +112,13 @@ export function tableView(st: HandState, events: readonly HandEvent[]): TableVie
     result: resultLine(st),
     heroWin: over && heroNet > 0 ? `+${money(heroNet, bb)}` : null,
   };
+}
+
+/** The hand-over bar: this hand's result, then where you stand for the game. No "profit": plain won or lost. */
+export function handOverLine(handNet: number, gameNet: number, bigBlind: number): readonly [hand: string, game: string] {
+  const hand = handNet > 0 ? `Won ${money(handNet, bigBlind)} this hand`
+    : handNet < 0 ? `Lost ${money(handNet, bigBlind)} this hand` : "Broke even this hand";
+  const game = gameNet > 0 ? `Up ${money(gameNet, bigBlind)} this game`
+    : gameNet < 0 ? `Down ${money(gameNet, bigBlind)} this game` : "Even this game";
+  return [hand, game];
 }
