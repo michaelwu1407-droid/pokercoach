@@ -113,3 +113,7 @@ The owner asked for a switchable trainer like the coaches in chess apps. Chess c
 - **Results mislead.** It reminds you to judge the decision, not the result.
 
 The hint (the spot's rule of thumb) and the best move stay hidden until asked. A move that would be a mistake pauses with "Think again", like a chess coach's warning, and can be taken back or played anyway. Any decision where the trainer showed the answer or warned you is logged as "assisted" and left out of progress. The trainer is off during practice, which tests spots you got wrong. Invariant 4 still holds with the trainer off; switching it on is the learner asking for help.
+
+## 26. The table plays like a poker game
+
+Compared with 247 Free Poker and PokerNow, the table felt like a form. Now the board and your cards are large, the pot is the biggest text on the felt, each player's last action is a speech bubble over their head, and the chips put in this round sit on the felt in front of each seat. At showdown the board cards the winner did not use are dimmed and every shown hand is named under its cards (`src/evaluator/bestFive.ts`), so the learner sees why the winner won. Your hand's name sits under your cards all hand. Everything the table draws comes from one pure view model (`src/ui/tableView.ts`). Motion is short and turned off for people who ask for reduced motion. Sounds are synthesized, start on, and can be muted from the top bar. The browser test fails when seats, bubbles, chips, tags or the board overlap.
