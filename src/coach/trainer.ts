@@ -55,11 +55,11 @@ function price(st: HandState): string {
   const bb = st.config.bigBlind;
   const raised = st.street === "preflop" && st.currentBet > bb;
   if (st.street === "preflop" && !raised && legal && legal.callAmount > 0)
-    return "Nobody has raised. Don't just call. Raise or fold.";
+    return "Nobody has raised. Just calling lets everyone in cheaply. Raise or fold.";
   if (legal && legal.callAmount > 0) {
     const after = pot + legal.callAmount;
     const need = legal.callAmount / after;
-    return `A call costs ${money(legal.callAmount, bb)} to win ${money(after, bb)}. You need to win ${pct(need)} of the time.`;
+    return `Your ${money(legal.callAmount, bb)} call makes the pot ${money(after, bb)}. You need to win ${pct(need)} of the time.`;
   }
   if (st.street === "preflop") return "Nobody raised. Check for free, or raise good hands.";
   return `Nobody has bet. Checking is free. A half-pot bluff needs ${pct(BLUFF_GUIDE.halfPot)} folds.`;
@@ -74,7 +74,7 @@ function read(name: string, seen: Seen, facing: "bet" | "raise" | "re-raise" | n
   if (!p || p.hands < MIN_HANDS || p.played === 0) return `Too few hands to read ${name} yet.`;
   const play = p.played / p.hands, raise = p.raised / p.played;
   const how = `${name} plays 1 hand in ${Math.max(1, Math.round(1 / play))}${raise > 0.6 ? " and raises most" : raise < 0.25 ? " and mostly calls" : ""}.`;
-  if (!facing) return play < 0.2 ? `${how} When ${name} stays in, expect a real hand.` : play > 0.4 ? `${how} Bet your good hands.` : how;
+  if (!facing) return play < 0.2 ? `${how} When ${name} stays in, expect a real hand.` : play > 0.4 ? `${how} Bet your good hands.` : `${how} If ${name} stays in, expect a real hand.`;
   if (play < 0.2) return `${how} This ${facing} likely means a strong hand.`;
   if (play > 0.4) return `${how} This ${facing} is often weak.`;
   return `${how} This ${facing} is likely a real hand.`;
@@ -94,7 +94,7 @@ function player(st: HandState, hero: SeatIndex, opponents: Opponents, seen: Seen
   if (st.street === "preflop") {
     // Before anyone has put chips in by choice there is nobody to read; only who is left to act matters.
     const after = st.pending.filter((p) => p !== hero).length;
-    return after <= 2 ? `Only ${after} left to act after you. Raise more hands.` : "";
+    return after <= 2 ? `Only ${after} left to act after you. Raise more hands.` : "Nobody has acted yet.";
   }
   if (live.length > 1) return `${live.length} players are in. You need a stronger hand.`;
   return live[0] ? read(live[0], seen, null) : "";

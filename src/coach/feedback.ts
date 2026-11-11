@@ -104,7 +104,7 @@ export function feedback(g: Grade, opponents: Opponents, bb: number): Feedback {
   const win: Stat = {
     value: pct(g.win.chance),
     label: `Your chance vs ${who}`,
-    detail: "Against the hands their bets point to. Your live odds ignore their bets.",
+    detail: g.boardPlays ? "Includes splits: everyone shares the board's hand." : "Against the hands their bets point to. The odds by your cards don't use their bets.",
   };
   const cost: Stat[] = g.verdict !== "good" && g.evLossBB !== null
     ? [{ value: `−${dollars(g.evLossBB)}`, label: "Cost of this choice", detail: "What this choice loses on average." }]

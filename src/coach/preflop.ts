@@ -29,7 +29,7 @@ const typesToPlay = (main: readonly HandGroup[]) => {
   const anyAce = main.some((g) => g.kind === "aceSmall" && !g.allSuited);
   return main.filter((g) => !(anyAce && g.kind === "aceBig")).map((g) => capital(playPhrase(g)));
 };
-const noneOf = (main: readonly HandGroup[]) => (main.length === 1 ? "not one of these" : main.length === 2 ? "neither of these" : "none of these");
+const noneOf = (_main: readonly HandGroup[]) => "not on this list";
 
 const RAISE = { "rfi": "raise", "vs-limp": "raise", "vs-open": "re-raise", "vs-3bet": "raise again", "vs-4bet": "raise again" } as const;
 
@@ -108,7 +108,7 @@ export function preflopWhy(g: Graded, o: Opponents): { label: string; text: stri
     }
     case "vs-limp": return { label: "Why", text: "Players who just call usually have medium hands. Raise the hands that beat them." };
     case "vs-open": return looseRaiser(g)
-      ? { label: "Why so few", text: `Most players raise here with their best ${b.openerShare !== null ? pct(b.openerShare) : "few"} hands. ${capital(raiser)} raises more. Your hand still trails.` }
+      ? { label: "Why so few", text: `Most players raise here with only their top ${b.openerShare !== null ? pct(b.openerShare) : "few"} of hands. ${capital(raiser)} raises more. Your hand still trails.` }
       : { label: "Why so few", text: `A raise from the ${b.opener ? seatName(b.opener) : ""} seat usually means a top ${b.openerShare !== null ? pct(b.openerShare) : ""} hand. You need a hand that beats most of those.` };
     case "vs-3bet": return { label: "Why so few", text: "A re-raise usually means a very strong hand." };
     case "vs-4bet": return { label: "Why so few", text: "A third raise means a huge pot. Only the very best hands are worth it." };

@@ -53,7 +53,7 @@ function reason(g: Graded, kind: Kind, bet: ActionValue | null, name: string | u
       return fold >= bet.foldNeeded ? `${start} ${They} folds ${pct(fold)}. ${move}.` : `${start} ${They} folds ${pct(fold)}, close enough. ${move}.`;
     }
     if (fold < 0.3 && (called ?? equity) >= 0.5)
-      return `${They} ${fold < 0.005 ? "never folds" : "rarely folds"}, but calls with worse hands. You win ${pct(called ?? equity)} when called. ${move}.`;
+      return `${them === "everyone" ? (fold < 0.005 ? "Nobody folds" : "Few fold") : `${They} ${fold < 0.005 ? "never folds" : "rarely folds"}`}, but worse hands call. You win ${pct(called ?? equity)} when called. ${move}.`;
     if (g.basis.opponents > 1 && equity > g.fairShare && fold < 0.3)
       return `With ${g.basis.opponents} opponents, a fair share is ${pct(g.fairShare)}. You win ${pct(equity)}, more than that. ${move}.`;
     return `${They} folds ${pct(fold)} of the time.${called === null ? "" : ` You win ${pct(called)} when called.`} ${move}.`;
@@ -61,9 +61,9 @@ function reason(g: Graded, kind: Kind, bet: ActionValue | null, name: string | u
   if (called === null) return `You win ${eq}. Check.`;
   if (equity >= 0.5) return `You are ahead (${eq}). A bet scares off weaker hands. Check and keep them in.`;
   if (bet && bet.foldNeeded !== undefined && called < 0.5 && fold > 0.005) {
-    const needs = `A bet needs ${them} to fold ${pct(bet.foldNeeded)} of the time.`;
+    const needs = `A bet needs ${them} to fold ${pct(bet.foldNeeded)} of the time${bet.risk !== undefined && bet.potWithBet !== undefined ? ` (${money(bet.risk)} ÷ ${money(bet.potWithBet)})` : ""}.`;
     if (fold <= bet.foldNeeded) return `${needs} ${They} folds only ${pct(fold)}. Check.`;
-    return `${needs} ${They} folds ${pct(fold)}, but often raises or beats you when staying in. Check.`;
+    return `${needs} ${They} folds ${pct(fold)}. When ${them} stays in, ${them} often raises or beats you. Check.`;
   }
   return `A bet ${fold < 0.005 ? `never makes ${them} fold` : `makes ${them} fold only ${pct(fold)} of the time`}. You win just ${pct(called)} when called. Check.`;
 }
@@ -100,7 +100,8 @@ function summaryText(g: Graded, name: string | undefined, describe: (a: PlayerAc
     const why = !a || !b ? ""
       : bluff ? (moreFolds ? ` It gets more folds (${pct(a.foldShare ?? 0)} vs ${pct(b.foldShare ?? 0)}).` : " It gets about the same folds for less money.")
       : bigger ? " Worse hands still call the bigger bet." : " The smaller bet keeps worse hands calling.";
-    return `${capital(describe(g.best))} earns about ${dollars(g.evLossBB!)} more on average than ${describe(g.action)}.${why}`;
+    const amt = (a: PlayerAction) => ("to" in a ? money(a.to) : describe(a));
+    return `${amt(g.best)} earns about ${dollars(g.evLossBB!)} more than ${amt(g.action)}.${why}`;
   }
   if (chosen === "aggressive" && mine && best === "passive" && g.basis.kind === "ev" && g.basis.equity >= 0.5)
     return `You are ahead (${pct(g.basis.equity)}). Your bet scares off the hands you beat. ${g.best.type === "check" ? "Check" : "Call"} and keep them in.`;

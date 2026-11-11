@@ -27,7 +27,7 @@ describe("the trainer's three checks", () => {
   it("names your seat, the price of calling, and who raised", () => {
     const b = trainerBrief(st, 0, opponents, {});
     expect(b.position).toBe("Dealer seat. Only the blinds act after you. Play more hands.");
-    expect(b.price).toBe("A call costs $2.50 to win $9. You need to win 28% of the time.");
+    expect(b.price).toBe("Your $2.50 call makes the pot $9. You need to win 28% of the time.");
     expect(b.player).toBe(`${ids[3]} raised. Too few hands to read ${ids[3]} yet.`);
   });
 
