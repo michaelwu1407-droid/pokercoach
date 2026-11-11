@@ -25,7 +25,7 @@ describe("what they likely have", () => {
 
 describe("hand names", () => {
   it("says when the board plays", () => {
-    expect(describeHand(hole("2c 3d"), parseCards("As Ks Qs Js Ts"))).toBe("Royal flush on the board (everyone still in has it)");
+    expect(describeHand(hole("2c 3d"), parseCards("As Ks Qs Js Ts"))).toBe("Royal flush on board (everyone shares it)");
     expect(describeHand(hole("Jd 9c"), parseCards("Ac 8c 2d 4s"))).toBe("No pair, Jack high");
   });
 });

@@ -78,7 +78,7 @@ describe("describeHand", () => {
     expect(d("5h 4c", "Ac 2d 3s")).toBe("Straight to the Five");
     expect(d("Ah Kh", "Qh Jh Th")).toBe("Royal flush");
     expect(d("Kh Kc", "Ks 7d 7c")).toBe("Full house, Kings full of Sevens");
-    expect(d("Kd Js", "Qh 4s 4h")).toBe("King high (the pair of Fours is on the board)");
+    expect(d("Kd Js", "Qh 4s 4h")).toBe("King high (pair of Fours on board)");
     expect(d("Kd 4c", "Qh 4s 4h")).toBe("Three Fours");
   });
 });

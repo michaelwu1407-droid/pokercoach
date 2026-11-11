@@ -84,7 +84,8 @@ export function tableView(st: HandState, events: readonly HandEvent[]): TableVie
     // Opponents' folded cards leave the table; yours stay, greyed, so you can still see what you let go.
     const cards = s.folded && !isHero ? [] : s.hole.map((card) => ({ card, hidden: !isHero && !shown, dim: shown && !winner }));
     return {
-      index: i, name: s.id, seat: seatName(pos), stack: money(s.stack, bb), isHero, isDealer: pos === "BTN",
+      // Once the hand is over the pot is paid out, so the stack shown includes what the seat won.
+      index: i, name: s.id, seat: seatName(pos), stack: money(s.stack + (st.phase === "complete" ? st.payouts.filter((p) => p.seat === i).reduce((t, p) => t + p.amount, 0) : 0), bb), isHero, isDealer: pos === "BTN",
       folded: s.folded, toAct: st.phase === "betting" && st.toAct === i, winner,
       bubble, bet: !over && s.street > 0 ? money(s.street, bb) : null, cards, tag,
     };

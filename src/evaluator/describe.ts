@@ -13,7 +13,7 @@ export function describeHand(hole: readonly [Card, Card], board: readonly Card[]
     return `${NAMES[rankOf(a)]}-${NAMES[rankOf(b)]} ${suitOf(a) === suitOf(b) ? "suited" : "offsuit"}`;
   }
   const score = evaluate([...hole, ...board]);
-  if (board.length === 5 && evaluate(board) === score) return `${handName(score)} on the board (everyone still in has it)`;
+  if (board.length === 5 && evaluate(board) === score) return `${handName(score)} on board (everyone shares it)`;
   return handName(score, hole);
 }
 
@@ -25,12 +25,12 @@ export function handName(score: HandScore, hole?: readonly [Card, Card]): string
   const made = category === "pair" || category === "trips" ? [k1!] : category === "two pair" ? [k1!, k2!] : null;
   if (hole && made && !made.some((r) => holeRanks.includes(r))) {
     const shared = category === "pair" ? `pair of ${PLURAL[k1!]}` : category === "trips" ? `three ${PLURAL[k1!]}` : `two pair`;
-    return shared === "two pair" ? `${NAMES[Math.max(...holeRanks)]} high (the board has two pairs)` : `${NAMES[Math.max(...holeRanks)]} high (the ${shared} is on the board)`;
+    return shared === "two pair" ? `${NAMES[Math.max(...holeRanks)]} high (two pairs on board)` : `${NAMES[Math.max(...holeRanks)]} high (${shared} on board)`;
   }
   // Two pair where one pair is the board's: say which, so it does not read as two pairs of your own.
   if (hole && category === "two pair") {
     const boardPair = [k1!, k2!].find((r) => !holeRanks.includes(r));
-    if (boardPair !== undefined) return `Two pair, ${PLURAL[k1!]} and ${PLURAL[k2!]} (the ${PLURAL[boardPair]} are on the board)`;
+    if (boardPair !== undefined) return `Two pair, ${PLURAL[k1!]} and ${PLURAL[k2!]} (${PLURAL[boardPair]} on board)`;
   }
   // Ace high when the Ace is on the board tells you nothing; your own best card is what matters.
   if (hole && category === "high card" && !holeRanks.includes(k1!)) return `No pair, ${NAMES[Math.max(...holeRanks)]} high`;
