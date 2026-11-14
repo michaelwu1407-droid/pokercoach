@@ -36,7 +36,9 @@ page.on("pageerror", (e) => errors.push(String(e)));
 
 
 /** Table pieces that collide, plus tags off screen and amounts shown twice. Pieces of one seat may overlap each other. */
-const collisions = () => page.evaluate(() => {
+const collisions = () => page.evaluate(async () => {
+  // Judge the settled layout: a card sliding in passes over the pot for a moment by design.
+  await Promise.all(document.getAnimations().map((a) => a.finished.catch(() => {})));
   const pieces = [];
   const out = [];
   const add = (group, el) => {
@@ -59,7 +61,32 @@ const collisions = () => page.evaluate(() => {
     if (bubble?.textContent.includes("$")) out.push(`amount in chips and bubble: ${bubble.textContent}`);
   });
   document.querySelectorAll(".bet-chip").forEach((el, i) => add(`chip${i}`, el));
-  document.querySelectorAll(".board, .pot, .result").forEach((el) => add("centre", el));
+  // Pot, board and result line are separate pieces: the result must never sit under the cards.
+  // Each board card counts on its own, since a card can spill out of the board's box.
+  document.querySelectorAll(".board .card, .pot, .result").forEach((el) => add(el.closest(".board") ? "board" : el.className, el));
+  // Seat boxes, opponents' cards and hand names never straddle the felt's rim: each is wholly off the felt or wholly on it.
+  // Your own cards rest on the felt in front of you, and bubbles and the dealer button are free to sit over the rim.
+  const felt = document.querySelector(".felt");
+  if (felt) {
+    const f = felt.getBoundingClientRect();
+    const bw = parseFloat(getComputedStyle(felt).borderTopWidth);
+    const inside = (x, y, b) => {
+      const l = f.left + b, t = f.top + b, w = f.width - 2 * b, h = f.height - 2 * b, rad = Math.min(w, h) / 2;
+      return Math.hypot(x - Math.min(Math.max(x, l + rad), l + w - rad), y - Math.min(Math.max(y, t + rad), t + h - rad)) <= rad;
+    };
+    document.querySelectorAll(".seat-plate, .seat:not(.seat-hero) .seat-cards, .seat:not(.seat-hero) .hand-tag").forEach((el) => {
+      const r = el.getBoundingClientRect();
+      if (!r.width) return;
+      const pts = [];
+      for (let i = 0; i <= 6; i++) {
+        const x = r.left + (i / 6) * r.width, y = r.top + (i / 6) * r.height;
+        pts.push([x, r.top], [x, r.bottom], [r.left, y], [r.right, y]);
+      }
+      const onFelt = pts.filter(([x, y]) => inside(x, y, 0)).length;
+      if (onFelt > 0 && pts.some(([x, y]) => !inside(x, y, bw))) out.push(`on the rim: ${el.closest(".seat")?.title} ${el.className}`);
+      if (r.left < 0 || r.right > window.innerWidth) out.push(`off screen: ${el.closest(".seat")?.title} ${el.className}`);
+    });
+  }
   document.querySelectorAll(".waiting, .odds-panel").forEach((el) => add("below", el));
   const hit = (a, b) => a.left < b.right - 1 && b.left < a.right - 1 && a.top < b.bottom - 1 && b.top < a.bottom - 1;
   for (const [k, a] of pieces.entries())

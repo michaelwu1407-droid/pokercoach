@@ -127,3 +127,11 @@ A beginner scored the table 7/10 against 247 Free Poker's 8/10. The fixes, all d
 - **The winner's unused cards dim**, as the unused board cards already did, so the best five stands out.
 - **A shorter stack under your seat.** Your odds sit beside your seat box; the reason and the history share one line.
 - **Seats sit off the rail,** folded seats stay readable, the dealer button sits outside the seat box, and your bubble sits above your cards like everyone else's. At four or five players, seats use the six-seat spots, because even spacing puts them level with the board's ends, where a phone has no room.
+
+## 28. Seats never straddle the felt's rim
+
+- Problem: seat boxes sat half on the rim on phone and desktop, which read as a layout accident. Faded older bubbles fell below readable contrast.
+- Rule: a seat box, an opponent's cards and their hand name are wholly off the felt. Side seats pin their inner edge a fixed gap outside the felt, so they grow outward at showdown. The top seat sits a gap above the felt with its hand name beside its box.
+- Phone: the table uses the full screen width and opponents' cards overlap like a held hand, so side seats stay narrow.
+- Older bubbles stay solid with muted text (above 4.5:1 contrast). The latest action stands out by weight, border and shadow.
+- Enforced in e2e: the rim check, each board card checked against the pot and result line, and the check runs on the settled layout.

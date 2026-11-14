@@ -35,8 +35,15 @@ function place(i: number, n: number): CSSProperties {
   const cy = sy < 0 ? -(sy * sy) : sy ** 3;
   const sx = -Math.sin(angle);
   // --sd lets narrow screens drop the lower seats further, below the board.
-  // --side puts the dealer button on the seat's outer side, away from its cards, chips and the board.
-  return { "--sx": sx, "--sy": sy, "--cy": cy, "--sd": Math.max(sy, 0), "--side": sx > 0.1 ? 1 : -1 } as CSSProperties;
+  // --side puts the dealer button on a side seat's inner side, between it and the felt, so it never leaves the screen.
+  // Seats at the top and bottom keep it on their left, away from your odds on the right.
+  return { "--sx": sx, "--sy": sy, "--cy": cy, "--sd": Math.max(sy, 0), "--side": sx < -0.1 ? 1 : -1 } as CSSProperties;
+}
+
+/** Side seats: narrow screens pin these to the screen edge so they clear the felt. The top seat puts its hand name beside its box. */
+function edge(i: number, n: number): string {
+  const p = place(i, n) as Record<string, number>;
+  return p["--sx"]! < -0.1 ? " spot-left" : p["--sx"]! > 0.1 ? " spot-right" : p["--sy"]! < 0 ? " spot-top" : "";
 }
 
 function Seat({ v, heroWin, aside, chip }: { v: SeatView; heroWin: string | null; aside: ReactNode; chip: ReactNode }) {
@@ -68,7 +75,7 @@ function Seat({ v, heroWin, aside, chip }: { v: SeatView; heroWin: string | null
 
 function Chip({ v, n }: { v: SeatView; n: number }) {
   return (
-    <div className={`bet-chip${v.isHero ? " bet-hero" : ""}`} style={v.isHero ? undefined : place(v.index, n)} data-testid={`bet-${v.index}`}>
+    <div className={`bet-chip${v.isHero ? " bet-hero" : edge(v.index, n).replace("spot-", "chip-")}`} style={v.isHero ? undefined : place(v.index, n)} data-testid={`bet-${v.index}`}>
       <span className="chip-dot" aria-hidden="true" />{v.bet}
     </div>
   );
@@ -91,7 +98,7 @@ export function Table({ st, events, onSkip, heroAside }: { st: HandState; events
       </div>
       {view.seats.map((v) => v.bet && !v.isHero && <Chip key={`${v.index}:${v.bet}`} v={v} n={n} />)}
       {view.seats.map((v) => (
-        <div key={v.index} className={`seat-spot${v.isHero ? " spot-hero" : ""}`} style={place(v.index, n)}>
+        <div key={v.index} className={`seat-spot${v.isHero ? " spot-hero" : ""}${edge(v.index, n)}`} style={place(v.index, n)}>
           {/* Your chips ride with your seat, above your bubble, so they never meet it whatever its height. */}
           <Seat v={v} heroWin={view.heroWin} aside={v.isHero ? heroAside : null} chip={v.isHero && v.bet ? <Chip key={v.bet} v={v} n={n} /> : null} />
         </div>
